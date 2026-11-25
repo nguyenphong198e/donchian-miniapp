@@ -5,416 +5,464 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>MEKVRO · Donchian H4</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700;800&display=swap">
 <style>
   :root {
-    --bg: #f4f5f7; --card: #ffffff; --ink: #14171c; --ink-2: #4b5563; --ink-3: #8b93a1; --line: #e5e7eb;
-    --accent: #2f6fde; --pos: #128a4c; --neg: #c8372d; --pos-bg: #e6f5ec; --neg-bg: #fbe9e7; --warn: #b26a00;
-    --radius: 14px;
+    --bg: #f3f5f8; --card: #ffffff; --ink: #121721; --ink-2: #4a5263; --ink-3: #8a93a3; --line: #e3e7ee; --soft: #f5f7fa;
+    --accent: #2f6fde; --pos: #1f9a5c; --neg: #d6453b; --pos-bg: #e7f6ee; --neg-bg: #fdecea; --gold: #c98a12; --gold-bg: #fdf4e2;
+    --blue-bg: #eaf1fd; --shadow: 0 1px 2px rgba(18, 23, 33, .04), 0 4px 14px rgba(18, 23, 33, .05);
+    --sans: "Be Vietnam Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #0f1115; --card: #181b21; --ink: #eef0f3; --ink-2: #b4bac4; --ink-3: #7c8492; --line: #262a32;
-      --accent: #5b93f0; --pos: #3cc37a; --neg: #ff6b5e; --pos-bg: #133222; --neg-bg: #3a1a17; --warn: #e0a440; }
+    :root { --bg: #0d1016; --card: #161a22; --ink: #eef1f6; --ink-2: #b7bfcc; --ink-3: #7c8697; --line: #252b36; --soft: #1c212b;
+      --accent: #5b93f0; --pos: #3ccb82; --neg: #ff6f63; --pos-bg: #12301f; --neg-bg: #3a1916; --gold: #e3a93e; --gold-bg: #33270f;
+      --blue-bg: #17243b; --shadow: none; color-scheme: dark; }
   }
-  html.tg { --bg: var(--tg-theme-secondary-bg-color, #f4f5f7); --card: var(--tg-theme-section-bg-color, var(--tg-theme-bg-color, #fff));
-    --ink: var(--tg-theme-text-color, #14171c); --ink-2: var(--tg-theme-subtitle-text-color, #4b5563);
-    --ink-3: var(--tg-theme-hint-color, #8b93a1); --accent: var(--tg-theme-button-color, #2f6fde); }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    padding: 12px 12px calc(16px + env(safe-area-inset-bottom)); -webkit-font-smoothing: antialiased; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); }
+  body { font: 15px/1.45 var(--sans); -webkit-font-smoothing: antialiased;
+    padding: 10px max(12px, env(safe-area-inset-right)) calc(86px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
   .wrap { max-width: 560px; margin: 0 auto; display: grid; gap: 12px; }
-  .num { font-variant-numeric: tabular-nums; }
-  .card { background: var(--card); border-radius: var(--radius); padding: 14px; }
-  header { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 2px 4px; }
-  header h1 { font-size: 17px; margin: 0; font-weight: 700; }
-  .badge { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 99px; background: var(--line); color: var(--ink-2); vertical-align: 2px; margin-left: 4px; }
-  .upd { font-size: 12px; color: var(--ink-3); text-align: right; }
-  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); margin-right: 5px; vertical-align: 1px; }
-  .dot.on { background: var(--pos); }
-  .hero .lbl { font-size: 12.5px; color: var(--ink-3); }
-  .hero .eq { font-size: 32px; font-weight: 800; letter-spacing: -.5px; margin: 2px 0 0; }
-  .hero .chg { font-size: 14px; font-weight: 700; }
-  .pos { color: var(--pos); } .neg { color: var(--neg); }
-  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
-  .kpi { background: var(--bg); border-radius: 10px; padding: 8px; }
-  .kpi span { display: block; font-size: 10.5px; color: var(--ink-3); font-weight: 600; text-transform: uppercase; letter-spacing: .3px; }
-  .kpi b { display: block; font-size: 15px; margin-top: 2px; }
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -.2px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 16px; box-shadow: var(--shadow); min-width: 0; }
+  .pos { color: var(--pos); } .neg { color: var(--neg); } .muted { color: var(--ink-3); }
+
+  header { display: flex; justify-content: space-between; align-items: center; padding: 2px 4px 0; }
+  .brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 18px; letter-spacing: -.3px; }
+  .live-badge { font: 700 10.5px/1 var(--mono); color: var(--neg); background: var(--neg-bg); padding: 4px 7px; border-radius: 6px; letter-spacing: .4px; }
+  .upd { font-size: 11.5px; color: var(--ink-3); display: flex; align-items: center; gap: 5px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); }
+  .dot.on { background: var(--pos); box-shadow: 0 0 0 3px var(--pos-bg); }
+
+  .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--ink-3); }
+  .big { font: 800 38px/1.1 var(--mono); letter-spacing: -1.5px; margin: 8px 0 10px; }
+  .line2 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; font-size: 13.5px; color: var(--ink-2); }
+  .pill { font: 700 13px/1 var(--mono); padding: 7px 10px; border-radius: 99px; }
+  .pill.pos { background: var(--pos-bg); } .pill.neg { background: var(--neg-bg); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .chip { font: 600 12.5px/1 var(--mono); color: var(--ink-2); border: 1px solid var(--line); background: var(--soft); padding: 8px 11px; border-radius: 10px; }
+  .divider { height: 1px; background: var(--line); margin: 14px 0 12px; }
+  .meter-l { display: flex; justify-content: space-between; gap: 8px; font: 600 13px/1.3 var(--mono); }
+  .meter { height: 10px; border-radius: 99px; background: var(--soft); border: 1px solid var(--line); margin-top: 10px; overflow: hidden; }
+  .meter i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--pos)); }
+
+  .sec-h { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 18px; letter-spacing: -.3px; }
+  .sec-sub { font-size: 13px; color: var(--ink-2); margin: 4px 0 12px; }
+  .pos-card { border: 1px solid var(--line); border-radius: 16px; padding: 14px; display: grid; gap: 12px; }
+  .pos-top { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+  .tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .sym { font-weight: 800; font-size: 19px; letter-spacing: -.3px; margin-right: 2px; }
+  .tag { font: 700 11.5px/1 var(--mono); padding: 5px 7px; border-radius: 6px; background: var(--soft); color: var(--ink-2); border: 1px solid var(--line); }
+  .tag.blue { background: var(--blue-bg); color: var(--accent); border-color: transparent; }
+  .tag.long { background: var(--pos-bg); color: var(--pos); border-color: transparent; }
+  .pnl { text-align: right; font: 800 19px/1.2 var(--mono); }
+  .pnl small { display: block; font-size: 12.5px; font-weight: 700; margin-top: 2px; }
+  .stat-l { font: 500 13px/1.6 var(--mono); color: var(--ink-2); }
+  .track { border: 1px solid var(--line); border-radius: 14px; padding: 16px 14px 12px; }
+  .rail { position: relative; height: 6px; border-radius: 99px; background: var(--line); margin: 6px 4px 14px; }
+  .rail .fill { position: absolute; top: 0; bottom: 0; border-radius: 99px; background: var(--pos); }
+  .rail .fill.neg { background: var(--neg); }
+  .rail .tick { position: absolute; top: -5px; width: 2px; height: 16px; border-radius: 1px; transform: translateX(-1px); }
+  .rail .knob { position: absolute; top: 50%; width: 16px; height: 16px; border-radius: 50%; background: var(--card); border: 3px solid var(--pos); transform: translate(-50%, -50%); }
+  .rail .knob.neg { border-color: var(--neg); }
+  .legend { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .legend span { display: block; font-size: 11.5px; font-weight: 700; }
+  .legend b { font: 600 12.5px/1.3 var(--mono); }
+  .kv { display: grid; gap: 6px; }
+  .kv div { display: flex; justify-content: space-between; gap: 10px; background: var(--soft); border-radius: 10px; padding: 10px 12px; font: 500 13.5px/1.3 var(--mono); }
+  .kv div b { font-weight: 700; text-align: right; }
+  .empty { text-align: center; color: var(--ink-2); padding: 18px 8px 8px; font-size: 14px; }
+  .empty .ic { font-size: 30px; display: block; margin-bottom: 6px; }
+
+  .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .stat { background: var(--soft); border-radius: 12px; padding: 10px 12px; }
+  .stat span { display: block; font-size: 11.5px; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: .4px; }
+  .stat b { display: block; font: 700 17px/1.3 var(--mono); margin-top: 3px; }
   .chart { position: relative; margin-top: 12px; }
-  .chart svg { display: block; width: 100%; height: 170px; touch-action: pan-y; }
-  .chart svg text { fill: var(--ink-3); font-size: 10.5px; }
-  .tip { position: absolute; top: 0; pointer-events: none; background: var(--ink); color: var(--card); font-size: 12px; padding: 5px 8px; border-radius: 8px; white-space: nowrap; transform: translateX(-50%); }
-  .tabs { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--card); border-radius: 12px; padding: 4px; gap: 4px; position: sticky; top: 6px; z-index: 5; }
-  .tabs button { border: 0; background: transparent; color: var(--ink-2); font: inherit; font-weight: 600; font-size: 14px; padding: 8px 4px; border-radius: 9px; cursor: pointer; }
-  .tabs button[aria-selected="true"] { background: var(--accent); color: var(--tg-theme-button-text-color, #fff); }
-  .tabs .n { font-size: 11px; opacity: .8; margin-left: 3px; }
-  .list { display: grid; gap: 10px; }
-  .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-  .sym { font-weight: 700; font-size: 16px; }
-  .sub { font-size: 12.5px; color: var(--ink-3); }
-  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 10px; margin-top: 10px; }
-  .grid3 span { display: block; font-size: 11px; color: var(--ink-3); }
-  .grid3 b { font-size: 14px; }
-  .bar { height: 6px; border-radius: 3px; background: var(--line); margin-top: 10px; position: relative; overflow: hidden; }
-  .bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--accent); }
-  .chip { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
-  .chip.pos { background: var(--pos-bg); } .chip.neg { background: var(--neg-bg); }
-  .empty { text-align: center; color: var(--ink-3); padding: 22px 10px; font-size: 14px; }
-  .radar { display: grid; grid-template-columns: 1fr 74px auto; gap: 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
-  .radar:first-child { border-top: 0; padding-top: 0; }
-  .radar svg { width: 74px; height: 26px; display: block; }
-  .gap { text-align: right; min-width: 92px; }
-  .gap b { display: block; font-size: 15px; }
-  .hist { padding: 10px 0; border-top: 1px solid var(--line); }
-  .hist:first-child { border-top: 0; padding-top: 0; }
-  .tag { font-size: 10.5px; font-weight: 700; color: var(--ink-3); border: 1px solid var(--line); border-radius: 5px; padding: 0 4px; margin-left: 4px; }
-  .note { font-size: 12px; color: var(--ink-3); line-height: 1.5; }
-  .note b { color: var(--ink-2); }
-  .err { background: var(--neg-bg); color: var(--neg); border-radius: 10px; padding: 10px; font-size: 13px; }
-  .mode { grid-template-columns: repeat(2, 1fr); position: static; }
-  .lock h2 { font-size: 17px; margin: 0 0 4px; }
-  .lock form { display: flex; gap: 8px; margin-top: 12px; }
-  .lock input { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
-  .lock button, .linkbtn { border: 0; border-radius: 10px; padding: 10px 16px; font: inherit; font-weight: 700; background: var(--accent); color: var(--tg-theme-button-text-color, #fff); cursor: pointer; }
-  .linkbtn { background: transparent; color: var(--ink-3); font-weight: 600; font-size: 12px; padding: 4px 0; }
+  .chart svg { display: block; width: 100%; height: 200px; touch-action: pan-y; }
+  .chart svg text { fill: var(--ink-3); font: 500 10.5px var(--mono); }
+  .tip { position: absolute; top: -30px; pointer-events: none; background: var(--ink); color: var(--card); font: 600 12px var(--mono); padding: 6px 9px; border-radius: 8px; white-space: nowrap; transform: translateX(-50%); }
+
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .hist { padding: 12px 0; border-top: 1px solid var(--line); display: grid; gap: 4px; }
+  .hist:first-of-type { border-top: 0; padding-top: 4px; }
+  .badge { font: 700 12.5px/1 var(--mono); padding: 6px 9px; border-radius: 8px; white-space: nowrap; }
+  .badge.pos { background: var(--pos-bg); } .badge.neg { background: var(--neg-bg); }
+  .small { font: 500 12.5px/1.45 var(--mono); color: var(--ink-3); }
+
+  .radar { display: grid; grid-template-columns: minmax(0, 1fr) 78px 104px; gap: 10px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); }
+  .radar:first-of-type { border-top: 0; padding-top: 4px; }
+  .radar svg { width: 78px; height: 28px; display: block; }
+  .gap { text-align: right; }
+  .gap b { display: block; font: 700 15px/1.2 var(--mono); }
+  .gbar { height: 5px; border-radius: 99px; background: var(--line); margin-top: 5px; overflow: hidden; }
+  .gbar i { display: block; height: 100%; background: var(--gold); border-radius: 99px; }
+
+  .rules { display: grid; gap: 10px; }
+  .rule { display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: start; }
+  .rule .ico { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--soft); font-size: 17px; }
+  .rule b { display: block; font-size: 14px; }
+  .rule span { font-size: 13px; color: var(--ink-2); }
+  .note { font-size: 12.5px; color: var(--ink-3); line-height: 1.55; }
+  .linkbtn { border: 1px solid var(--line); background: var(--soft); color: var(--ink-2); font: 600 13px var(--sans); padding: 10px 14px; border-radius: 12px; cursor: pointer; width: 100%; }
+
+  .lock { text-align: center; padding: 26px 18px; }
+  .lock .ic { font-size: 36px; }
+  .lock h2 { margin: 6px 0 4px; font-size: 19px; }
+  .lock form { display: flex; gap: 8px; margin-top: 16px; }
+  .lock input { flex: 1; min-width: 0; font: 600 16px var(--mono); padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--soft); color: var(--ink); }
+  .lock button { border: 0; border-radius: 12px; padding: 12px 18px; font: 700 15px var(--sans); background: var(--accent); color: #fff; cursor: pointer; }
+  .err { background: var(--neg-bg); color: var(--neg); border-radius: 12px; padding: 10px 12px; font-size: 13px; }
+
+  nav.bottom { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: color-mix(in srgb, var(--card) 92%, transparent);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-top: 1px solid var(--line);
+    padding: 6px max(6px, env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left)); }
+  nav.bottom .in { max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: repeat(5, 1fr); }
+  nav.bottom button { border: 0; background: none; color: var(--ink-3); font: 600 11.5px var(--sans); padding: 6px 2px; display: grid; justify-items: center; gap: 3px; cursor: pointer; }
+  nav.bottom button .i { font-size: 21px; line-height: 1; filter: grayscale(.6); opacity: .8; }
+  nav.bottom button[aria-selected="true"] { color: var(--accent); }
+  nav.bottom button[aria-selected="true"] .i { filter: none; opacity: 1; }
   [hidden] { display: none !important; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>MEKVRO <span class="badge" id="modeBadge">DONCHIAN H4</span></h1>
+    <div class="brand">MEKVRO <span class="live-badge" id="envBadge">LIVE</span></div>
     <div class="upd"><span class="dot" id="liveDot"></span><span id="upd">Đang tải…</span></div>
   </header>
   <div class="err" id="err" hidden></div>
 
   <section class="card lock" id="lock" hidden>
-    <h2>🔒 Dữ liệu đã khóa</h2>
-    <div class="sub">Số liệu tài khoản được mã hóa. Nhập mật khẩu một lần, Telegram trên máy này sẽ nhớ.</div>
+    <div class="ic">🔒</div>
+    <h2>Dữ liệu đã khóa</h2>
+    <div class="muted" style="font-size:13.5px">Số liệu tài khoản được mã hóa. Nhập mật khẩu một lần, Telegram sẽ nhớ.</div>
     <form id="lockForm" autocomplete="on">
       <input id="pw" type="password" autocomplete="current-password" placeholder="Mật khẩu" aria-label="Mật khẩu">
       <button type="submit">Mở</button>
     </form>
-    <div class="err" id="lockErr" style="margin-top:10px" hidden></div>
+    <div class="err" id="lockErr" style="margin-top:12px" hidden></div>
   </section>
 
-  <nav class="tabs mode" id="modeNav" role="tablist" hidden>
-    <button role="tab" aria-selected="true" data-mode="real">Tài khoản thật</button>
-    <button role="tab" aria-selected="false" data-mode="paper">Chạy giấy</button>
-  </nav>
-
-  <div id="realView" class="wrap" style="max-width:none" hidden>
-    <section class="card hero">
-      <div class="lbl" id="rLbl">Tài sản thật</div>
-      <div class="eq num" id="rEq">–</div>
-      <div class="chg num" id="rChg"></div>
-      <div class="kpis">
-        <div class="kpi"><span>Đã chốt</span><b class="num" id="rReal">–</b></div>
-        <div class="kpi"><span>Phí + fund</span><b class="num" id="rFee">–</b></div>
-        <div class="kpi"><span>Lệnh</span><b class="num" id="rN">–</b></div>
-        <div class="kpi"><span>Thắng</span><b class="num" id="rWr">–</b></div>
-      </div>
-      <div class="chart" id="rChartBox"><svg id="rChart" role="img" aria-label="Đường vốn tài khoản thật"></svg><div class="tip" id="rTip" hidden></div></div>
-      <div class="sub" id="rSub" style="margin-top:6px"></div>
+  <!-- TỔNG QUAN -->
+  <div id="v-home" class="wrap" hidden>
+    <section class="card">
+      <div class="eyebrow" id="hLbl">Tổng tài sản live</div>
+      <div class="big mono" id="hEq">–</div>
+      <div class="line2"><span class="pill" id="hChg"></span><span class="mono" id="hSplit"></span></div>
+      <div class="chips" id="hChips"></div>
+      <div class="divider"></div>
+      <div class="meter-l"><span id="mL"></span><span id="mR" class="muted"></span></div>
+      <div class="meter"><i id="mBar" style="width:0"></i></div>
     </section>
-    <section id="rOpen" class="list"></section>
-    <section class="card" id="rHist"></section>
-    <section class="card note" id="rNote"></section>
+    <section class="card">
+      <div class="sec-h">⚡ <span id="oTitle">Lệnh đang mở</span></div>
+      <div class="sec-sub">Giá &amp; lãi tạm nhảy mỗi 5 giây theo Binance Futures · chấm tròn là giá hiện tại giữa SL ban đầu và đỉnh</div>
+      <div id="oList" style="display:grid;gap:12px"></div>
+    </section>
   </div>
 
-  <div id="paperView" class="wrap" style="max-width:none" hidden>
-  <section class="card hero">
-    <div class="lbl" id="heroLbl">Vốn mô phỏng</div>
-    <div class="eq num" id="eq">–</div>
-    <div class="chg num" id="chg"></div>
-    <div class="kpis">
-      <div class="kpi"><span>Max DD</span><b class="num" id="kDd">–</b></div>
-      <div class="kpi"><span>Thắng</span><b class="num" id="kWr">–</b></div>
-      <div class="kpi"><span>PF</span><b class="num" id="kPf">–</b></div>
-      <div class="kpi"><span>Tổng R</span><b class="num" id="kR">–</b></div>
-    </div>
-    <div class="chart" id="chartBox"><svg id="chart" role="img" aria-label="Đường vốn mô phỏng"></svg><div class="tip" id="tip" hidden></div></div>
-    <div class="sub" id="ddNow" style="margin-top:6px"></div>
-  </section>
-
-  <nav class="tabs" role="tablist">
-    <button role="tab" aria-selected="true" data-tab="open">Vị thế<span class="n" id="nOpen"></span></button>
-    <button role="tab" aria-selected="false" data-tab="radar">Radar</button>
-    <button role="tab" aria-selected="false" data-tab="hist">Lịch sử<span class="n" id="nHist"></span></button>
-  </nav>
-
-  <section id="tab-open" class="list"></section>
-  <section id="tab-radar" class="card" hidden></section>
-  <section id="tab-hist" class="card" hidden></section>
-
-  <section class="card note" id="rules"></section>
+  <!-- BIỂU ĐỒ -->
+  <div id="v-chart" class="wrap" hidden>
+    <section class="card">
+      <div class="sec-h">📈 Đường vốn thật</div>
+      <div class="sec-sub" id="cSub"></div>
+      <div class="chart" id="cBox"><svg id="cSvg" role="img" aria-label="Đường vốn tài khoản thật"></svg><div class="tip" id="cTip" hidden></div></div>
+    </section>
+    <section class="card">
+      <div class="sec-h">🧮 Thống kê</div>
+      <div class="stats" id="cStats" style="margin-top:12px"></div>
+    </section>
   </div>
-  <button class="linkbtn" id="forget" hidden>Khóa lại / đổi mật khẩu</button>
+
+  <!-- RADAR -->
+  <div id="v-radar" class="wrap" hidden>
+    <section class="card">
+      <div class="sec-h">📡 Radar phá đỉnh</div>
+      <div class="sec-sub" id="rSub">Còn cách đỉnh 100 nến H4 bao nhiêu %. Tín hiệu chỉ tính khi nến H4 đóng trên đỉnh, kèm volume lớn.</div>
+      <div id="rList"></div>
+    </section>
+  </div>
+
+  <!-- LỊCH SỬ -->
+  <div id="v-hist" class="wrap" hidden>
+    <section class="card">
+      <div class="sec-h">📜 Lịch sử lệnh thật</div>
+      <div class="sec-sub" id="lSub"></div>
+      <div id="lList"></div>
+    </section>
+  </div>
+
+  <!-- CƠ CHẾ -->
+  <div id="v-rules" class="wrap" hidden>
+    <section class="card">
+      <div class="sec-h">🛡️ Cơ chế bot</div>
+      <div class="sec-sub">Donchian H4 · chỉ LONG · không TP cố định</div>
+      <div class="rules" id="rules"></div>
+    </section>
+    <section class="card note" id="srcNote"></section>
+    <button class="linkbtn" id="forget">🔒 Khóa lại / đổi mật khẩu</button>
+  </div>
 </div>
+
+<nav class="bottom" id="nav" hidden>
+  <div class="in" role="tablist">
+    <button role="tab" data-v="home" aria-selected="true"><span class="i">💼</span>Tổng quan</button>
+    <button role="tab" data-v="chart" aria-selected="false"><span class="i">📈</span>Biểu đồ</button>
+    <button role="tab" data-v="radar" aria-selected="false"><span class="i">📡</span>Radar</button>
+    <button role="tab" data-v="hist" aria-selected="false"><span class="i">📜</span>Lịch sử</button>
+    <button role="tab" data-v="rules" aria-selected="false"><span class="i">🛡️</span>Cơ chế</button>
+  </div>
+</nav>
+
 <script>
 const tg = window.Telegram && window.Telegram.WebApp;
-if (tg && tg.initData !== undefined && tg.platform !== "unknown") {
-  document.documentElement.classList.add("tg");
-  tg.ready(); tg.expand();
-}
-let D = null, live = {}, tab = "open";
+if (tg && tg.initData !== undefined && tg.platform !== "unknown") { tg.ready(); tg.expand(); }
 const $ = id => document.getElementById(id);
-const usd = (v, d = 0) => (v < 0 ? "-$" : "$") + Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
-const sgnUsd = v => (v >= 0 ? "+" : "") + usd(v);
-const pct = (v, d = 1) => (v > 0 ? "+" : "") + v.toFixed(d) + "%";
-const px = v => v >= 100 ? v.toLocaleString("en-US", { maximumFractionDigits: 2 }) : v >= 1 ? v.toFixed(4) : v.toFixed(6);
+let V = null, R = null, live = {}, view = "home", PW = null;
+
+const usd = (v, d = 2) => (v < 0 ? "-$" : "$") + Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+const sUsd = (v, d = 2) => (v >= 0 ? "+" : "") + usd(v, d);
+const pct = (v, d = 2) => (v >= 0 ? "+" : "") + v.toFixed(d) + "%";
+const px = v => v == null ? "–" : v >= 1000 ? v.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : v >= 100 ? v.toFixed(2) : v >= 1 ? v.toFixed(4) : v.toFixed(6);
 const coin = s => s.replace(/USDT$/, "");
 const cls = v => v >= 0 ? "pos" : "neg";
-const parseT = s => Date.parse(s.replace(" ", "T") + ":00Z");
-const fmtD = s => { const d = new Date(parseT(s)); return `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}`; };
+const parseT = s => Date.parse((s.length === 10 ? s + " 00:00" : s).replace(" ", "T") + ":00Z");
+const dm = s => { const d = new Date(parseT(s)); return `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}`; };
 const ago = s => { const m = Math.round((Date.now() - parseT(s)) / 60000); return m < 1 ? "vừa xong" : m < 60 ? `${m} phút trước` : m < 1440 ? `${Math.round(m / 60)} giờ trước` : `${Math.round(m / 1440)} ngày trước`; };
-const why = { sl: "SL ban đầu", trail: "Trailing", time: "Hết 30 ngày" };
+const why = { sl: "SL ban đầu", trail: "Trailing stop", time: "Hết 30 ngày", closed_on_exchange: "Stop trên sàn" };
 const NS = "http://www.w3.org/2000/svg";
-const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent && parent.appendChild(e); return e; };
+const el = (tag, a, p) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); p && p.appendChild(e); return e; };
 
-function openPnl(t) {
-  const p = live[t.symbol] || t.last || t.entry;
-  const upnl = t.notional * (p / t.entry - 1) - t.notional * D.meta.fee_pct / 100 - (t.funding || 0);
-  return { p, upnl, r: (p - t.entry) / (t.entry - t.sl0) };
+// ------------------------------------------------------------ derived numbers
+function openTrades() {
+  return (V.trades || []).filter(t => t.status === "open").map(t => {
+    const p = live[t.symbol] || t.mark || t.entry;
+    const risk = t.entry - t.sl0;
+    return { ...t, p, upnl: (p - t.entry) * t.qty, ret: (p / t.entry - 1) * 100, r: risk > 0 ? (p - t.entry) / risk : 0,
+             atStop: (t.stop - t.entry) * t.qty, peak: Math.max(t.extreme || t.entry, p) };
+  });
+}
+const closedTrades = () => (V.trades || []).filter(t => t.status === "closed");
+function equityNow() {
+  const op = openTrades(), upnl = op.reduce((a, t) => a + t.upnl, 0);
+  const wallet = V.wallet != null ? V.wallet : V.capital + V.realized;
+  return { op, upnl, wallet, eq: wallet + upnl };
 }
 
-function renderHero() {
-  const s = D.stats, m = D.meta;
-  let eq = s.equity;
-  if (live && D.open.length) eq = D.open.reduce((a, t) => a - (t.upnl || 0) + openPnl(t).upnl, s.equity);
-  $("eq").textContent = usd(eq);
-  const r = (eq / m.equity0 - 1) * 100;
-  $("chg").innerHTML = `<span class="${cls(r)}">${pct(r)}</span> <span class="sub">từ ${usd(m.equity0)} · bắt đầu ${fmtD(m.paper_start + " 00:00")}/${m.paper_start.slice(0, 4)}</span>`;
-  $("kDd").textContent = s.max_dd_pct.toFixed(1) + "%";
-  $("kWr").textContent = s.winrate == null ? "–" : s.winrate.toFixed(0) + "%";
-  $("kPf").textContent = s.pf == null ? "–" : s.pf.toFixed(2);
-  $("kR").textContent = (s.sum_r >= 0 ? "+" : "") + s.sum_r.toFixed(1) + "R";
-  $("ddNow").textContent = `Đang cách đỉnh vốn ${s.cur_dd_pct.toFixed(1)}% (đỉnh ${usd(s.peak)}) · ${s.trades} lệnh đã đóng · phí ${usd(s.fees)} · funding ${usd(s.funding)}`;
+// ------------------------------------------------------------ TỔNG QUAN
+function renderHome() {
+  const { op, upnl, eq } = equityNow(), ch = eq - V.capital;
+  $("hLbl").textContent = `Tổng tài sản live · vốn ${usd(V.capital, 0)}`;
+  $("hEq").textContent = usd(eq); $("hEq").className = "big mono " + cls(ch);
+  $("hChg").textContent = `${pct(ch / V.capital * 100)} (${sUsd(ch)})`; $("hChg").className = "pill " + cls(ch);
+  $("hSplit").innerHTML = `Đã chốt <b class="${cls(V.realized)}">${sUsd(V.realized)}</b> · Nổi <b class="${cls(upnl)}">${sUsd(upnl)}</b>`;
+  $("hChips").innerHTML = [`Rủi ro ${V.risk_pct}%/lệnh · ≤3×`, `Donchian H4 100 · 6×ATR`, `Lọc volume 1.5×`]
+    .map(x => `<span class="chip">${x}</span>`).join("");
+  const lo = Math.min(...V.curve.map(c => c[1]), eq);
+  if (eq < V.capital) {
+    const need = (V.capital / eq - 1) * 100, prog = (eq - lo) / Math.max(V.capital - lo, 1e-9);
+    $("mL").innerHTML = `Về vốn ${usd(V.capital, 0)}: <span class="neg">cần ${pct(need)}</span>`;
+    $("mR").textContent = `đáy ${usd(lo, 0)}`;
+    $("mBar").style.width = Math.max(3, Math.min(100, prog * 100)).toFixed(0) + "%";
+  } else {
+    const tgt = V.capital * (1 + 0.05 * (Math.floor((eq / V.capital - 1) / 0.05) + 1)), base = tgt - V.capital * 0.05;
+    $("mL").innerHTML = `Mốc kế tiếp ${usd(tgt, 0)}: <span class="pos">còn ${pct((tgt / eq - 1) * 100)}</span>`;
+    $("mR").textContent = `+5% mỗi mốc`;
+    $("mBar").style.width = Math.max(3, Math.min(100, (eq - base) / (tgt - base) * 100)).toFixed(0) + "%";
+  }
+  $("oTitle").textContent = `Lệnh đang mở (${op.length})`;
+  const box = $("oList"); box.replaceChildren();
+  if (!op.length) {
+    const near = R ? [...R].filter(r => !r.in_position).sort((a, b) => gapNow(a) - gapNow(b))[0] : null;
+    box.innerHTML = `<div class="empty"><span class="ic">🎯</span>Chưa có vị thế mở. Bot đang chờ một coin đóng nến H4 vượt đỉnh 100 nến, kèm volume lớn.` +
+      (near ? `<br><br>Gần nhất: <b>${coin(near.symbol)}</b>, cần tăng thêm <b class="mono">${gapNow(near).toFixed(1)}%</b>.` : "") + `</div>`;
+    return;
+  }
+  for (const t of op) box.appendChild(posCard(t));
+}
+function posCard(t) {
+  const lo = Math.min(t.sl0, t.p), hi = Math.max(t.peak, t.p, t.entry);
+  const X = v => ((v - lo) / (hi - lo || 1) * 100).toFixed(2) + "%";
+  const up = t.p >= t.entry, a = Math.min(t.entry, t.p), b = Math.max(t.entry, t.p);
+  const c = document.createElement("div"); c.className = "pos-card";
+  c.innerHTML = `
+    <div class="pos-top">
+      <div class="tags"><span class="sym">${coin(t.symbol)}</span><span class="tag blue">4h</span><span class="tag">DONCHIAN100</span><span class="tag long">LONG</span></div>
+      <div class="pnl ${cls(t.upnl)}">${sUsd(t.upnl)}<small>${pct(t.ret)}</small></div>
+    </div>
+    <div class="stat-l">Vào ${dm(t.opened)}${t.bars != null ? ` · ${t.bars}/180 nến H4` : ""} · R hiện tại <b class="${cls(t.r)}">${t.r >= 0 ? "+" : ""}${t.r.toFixed(2)}R</b><br>
+      Qty ${t.qty} · ~${usd(t.notional, 0)} @ ${t.lev}× · dời stop ${t.n_stop_moves ?? 0} lần</div>
+    <div class="track">
+      <div class="rail">
+        <div class="fill ${up ? "" : "neg"}" style="left:${X(a)};width:calc(${X(b)} - ${X(a)})"></div>
+        <div class="tick" style="left:${X(t.entry)};background:var(--ink-2)"></div>
+        <div class="tick" style="left:${X(t.stop)};background:var(--gold)"></div>
+        <div class="knob ${up ? "" : "neg"}" style="left:${X(t.p)}"></div>
+      </div>
+      <div class="legend">
+        <div><span class="neg">SL đầu</span><b>${px(t.sl0)}</b></div>
+        <div><span class="muted">Vào</span><b>${px(t.entry)}</b></div>
+        <div><span style="color:var(--gold)">Stop</span><b>${px(t.stop)}</b></div>
+        <div><span class="pos">Đỉnh</span><b>${px(t.peak)}</b></div>
+      </div>
+    </div>
+    <div class="kv">
+      <div><span>Nếu dính stop</span><b class="${cls(t.atStop)}">${sUsd(t.atStop)} (${pct((t.stop / t.entry - 1) * 100)})</b></div>
+      <div><span>Cách stop</span><b>${pct((t.stop / t.p - 1) * 100, 1)}</b></div>
+      <div><span>Giá live (5s)</span><b style="color:var(--accent)">${px(t.p)}</b></div>
+      <div><span>Thoát</span><b>Trailing 6×ATR · tối đa 30 ngày</b></div>
+    </div>`;
+  return c;
 }
 
-function drawChart(svgId = "chart", boxId = "chartBox", tipId = "tip", curve = D.curve, base = D.meta.equity0) {
-  const svg = $(svgId), box = $(boxId), tip = $(tipId);
+// ------------------------------------------------------------ BIỂU ĐỒ
+function renderChart() {
+  const { eq } = equityNow();
+  const pts = V.curve.map(([t, v]) => [parseT(t), v]); pts.push([Date.now(), eq]);
+  $("cSub").textContent = `Từ ${dm(V.since)}/${V.since.slice(0, 4)} · vốn ${usd(V.capital, 0)} (đường đứt) · cập nhật theo ngày đóng lệnh`;
+  drawChart(pts, V.capital);
+  const ct = closedTrades().filter(t => t.pnl != null), wins = ct.filter(t => t.pnl > 0);
+  let peak = V.capital, mdd = 0; for (const [, v] of pts) { peak = Math.max(peak, v); mdd = Math.min(mdd, v / peak - 1); }
+  const sumR = ct.reduce((a, t) => a + (t.r || 0), 0);
+  const best = ct.reduce((a, t) => !a || t.pnl > a.pnl ? t : a, null), worst = ct.reduce((a, t) => !a || t.pnl < a.pnl ? t : a, null);
+  const gp = wins.reduce((a, t) => a + t.pnl, 0), gl = -ct.filter(t => t.pnl <= 0).reduce((a, t) => a + t.pnl, 0);
+  const S = [["Lãi/lỗ tổng", sUsd(eq - V.capital), cls(eq - V.capital)], ["Sụt vốn tối đa", (mdd * 100).toFixed(2) + "%", "neg"],
+    ["Lệnh đã đóng", String(ct.length), ""], ["Tỷ lệ thắng", ct.length ? Math.round(wins.length / ct.length * 100) + "%" : "–", ""],
+    ["Tổng R", (sumR >= 0 ? "+" : "") + sumR.toFixed(2) + "R", cls(sumR)], ["Profit factor", gl > 0 ? (gp / gl).toFixed(2) : "–", ""],
+    ["Lệnh tốt nhất", best ? `${coin(best.symbol)} ${sUsd(best.pnl, 0)}` : "–", best ? cls(best.pnl) : ""],
+    ["Lệnh tệ nhất", worst ? `${coin(worst.symbol)} ${sUsd(worst.pnl, 0)}` : "–", worst ? cls(worst.pnl) : ""],
+    ["Phí giao dịch", sUsd(V.fees), "neg"], ["Funding", sUsd(V.funding), cls(V.funding)]];
+  $("cStats").innerHTML = S.map(([k, v, c]) => `<div class="stat"><span>${k}</span><b class="${c}">${v}</b></div>`).join("");
+}
+function drawChart(pts, base) {
+  const svg = $("cSvg"), box = $("cBox"), tip = $("cTip");
   if (box.offsetParent === null) return;
   svg.replaceChildren(); tip.hidden = true;
-  const W = Math.max(280, box.clientWidth), H = 170, m = { l: 44, r: 6, t: 8, b: 20 };
+  const W = Math.max(280, box.clientWidth), H = 200, m = { l: 50, r: 8, t: 10, b: 22 };
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-  const pts = curve.map(([t, v]) => [parseT(t.length === 10 ? t + " 00:00" : t), v]);
-  if (pts.length < 2) pts.push([Date.now(), pts[0][1]]);
   const t0 = pts[0][0], t1 = pts[pts.length - 1][0];
-  let lo = Math.min(...pts.map(p => p[1]), base), hi = Math.max(...pts.map(p => p[1]));
-  const pad = (hi - lo) * 0.08 || 100; lo -= pad; hi += pad;
-  const X = t => m.l + (t - t0) / (t1 - t0) * (W - m.l - m.r), Y = v => m.t + (1 - (v - lo) / (hi - lo)) * (H - m.t - m.b);
-  const step = [250, 500, 1000, 2000, 2500, 5000, 10000, 20000].find(s => (hi - lo) / s <= 5) || 50000;
+  let lo = Math.min(...pts.map(p => p[1]), base), hi = Math.max(...pts.map(p => p[1]), base);
+  const pad = (hi - lo) * 0.12 || 100; lo -= pad; hi += pad;
+  const X = t => m.l + (t - t0) / (t1 - t0 || 1) * (W - m.l - m.r), Y = v => m.t + (1 - (v - lo) / (hi - lo)) * (H - m.t - m.b);
+  const step = [100, 250, 500, 1000, 2000, 2500, 5000, 10000, 20000].find(s => (hi - lo) / s <= 5) || 50000;
   for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
-    el("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: "var(--line)", "stroke-dasharray": v === base ? "3 3" : "" }, svg);
+    el("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: "var(--line)" }, svg);
     el("text", { x: m.l - 6, y: Y(v) + 3.5, "text-anchor": "end" }, svg).textContent = "$" + (v / 1000).toFixed(v % 1000 ? 1 : 0) + "k";
   }
+  el("line", { x1: m.l, x2: W - m.r, y1: Y(base), y2: Y(base), stroke: "var(--ink-3)", "stroke-dasharray": "4 4" }, svg);
   const d0 = new Date(t0);
-  for (let d = new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth() + 1, 1)); d.getTime() < t1; d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 2, 1))) {
-    const x = X(d.getTime()); if (x < m.l + 10 || x > W - m.r - 14) continue;
-    el("text", { x, y: H - 5, "text-anchor": "middle" }, svg).textContent = `T${d.getUTCMonth() + 1}`;
+  for (let d = new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth() + 1, 1)); d.getTime() < t1; d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1))) {
+    const x = X(d.getTime()); if (x < m.l + 12 || x > W - m.r - 12) continue;
+    el("text", { x, y: H - 6, "text-anchor": "middle" }, svg).textContent = `T${d.getUTCMonth() + 1}`;
   }
-  const line = pts.map(([t, v], i) => (i ? "L" : "M") + X(t).toFixed(1) + "," + Y(v).toFixed(1)).join("");
-  el("path", { d: line + `L${X(t1)},${H - m.b}L${X(t0)},${H - m.b}Z`, fill: "var(--accent)", opacity: .08 }, svg);
-  el("path", { d: line, fill: "none", stroke: "var(--accent)", "stroke-width": 2, "stroke-linejoin": "round" }, svg);
-  const [lt, lv] = pts[pts.length - 1];
-  el("circle", { cx: X(lt), cy: Y(lv), r: 4, fill: "var(--accent)", stroke: "var(--card)", "stroke-width": 2 }, svg);
+  const last = pts[pts.length - 1][1], col = last >= base ? "var(--pos)" : "var(--neg)";
+  const line = pts.map(([t, v], i) => (i ? `H${X(t).toFixed(1)}V${Y(v).toFixed(1)}` : `M${X(t).toFixed(1)},${Y(v).toFixed(1)}`)).join("");
+  const grad = el("linearGradient", { id: "g", x1: 0, y1: 0, x2: 0, y2: 1 }, el("defs", {}, svg));
+  el("stop", { offset: "0", "stop-color": col, "stop-opacity": .22 }, grad); el("stop", { offset: "1", "stop-color": col, "stop-opacity": 0 }, grad);
+  el("path", { d: line + `V${H - m.b}H${X(t0)}Z`, fill: "url(#g)" }, svg);
+  el("path", { d: line, fill: "none", stroke: col, "stroke-width": 2.2, "stroke-linejoin": "round" }, svg);
+  el("circle", { cx: X(t1), cy: Y(last), r: 4.5, fill: col, stroke: "var(--card)", "stroke-width": 2 }, svg);
   const cross = el("line", { y1: m.t, y2: H - m.b, stroke: "var(--ink-3)", visibility: "hidden" }, svg);
-  const dotH = el("circle", { r: 4, fill: "var(--accent)", stroke: "var(--card)", "stroke-width": 2, visibility: "hidden" }, svg);
+  const dot = el("circle", { r: 4.5, fill: col, stroke: "var(--card)", "stroke-width": 2, visibility: "hidden" }, svg);
   const hit = el("rect", { x: m.l, y: 0, width: W - m.l - m.r, height: H, fill: "transparent" }, svg);
   const move = e => {
     const r = svg.getBoundingClientRect(), sx = (e.clientX - r.left) * W / r.width;
     const t = t0 + (Math.min(Math.max(sx, m.l), W - m.r) - m.l) / (W - m.l - m.r) * (t1 - t0);
-    let a = 0, b = pts.length - 1; while (a < b) { const c = (a + b + 1) >> 1; if (pts[c][0] <= t) a = c; else b = c - 1; }
-    const [pt, pv] = pts[a], x = X(pt);
-    for (const n of [cross]) { n.setAttribute("x1", x); n.setAttribute("x2", x); n.setAttribute("visibility", "visible"); }
-    dotH.setAttribute("cx", x); dotH.setAttribute("cy", Y(pv)); dotH.setAttribute("visibility", "visible");
-    const d = new Date(pt);
-    tip.textContent = `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")} · ${usd(pv)} (${pct((pv / base - 1) * 100)})`;
+    let a = 0; for (let i = 0; i < pts.length; i++) if (pts[i][0] <= t) a = i;
+    const pv = pts[a][1], x = X(t);
+    cross.setAttribute("x1", x); cross.setAttribute("x2", x); cross.setAttribute("visibility", "visible");
+    dot.setAttribute("cx", x); dot.setAttribute("cy", Y(pv)); dot.setAttribute("visibility", "visible");
+    const d = new Date(t);
+    tip.textContent = `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")} · ${usd(pv, 0)} (${pct((pv / base - 1) * 100)})`;
     tip.hidden = false;
-    const px_ = x / W * box.clientWidth, half = tip.offsetWidth / 2;
-    tip.style.left = Math.min(Math.max(px_, half), box.clientWidth - half) + "px";
-    tip.style.top = "-26px";
+    const half = tip.offsetWidth / 2, cx = x / W * box.clientWidth;
+    tip.style.left = Math.min(Math.max(cx, half), box.clientWidth - half) + "px";
   };
   hit.addEventListener("pointermove", move); hit.addEventListener("pointerdown", move);
-  hit.addEventListener("pointerleave", () => { tip.hidden = true; cross.setAttribute("visibility", "hidden"); dotH.setAttribute("visibility", "hidden"); });
+  hit.addEventListener("pointerleave", () => { tip.hidden = true; cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); });
 }
 
-function renderOpen() {
-  const box = $("tab-open"); box.replaceChildren();
-  $("nOpen").textContent = D.open.length ? D.open.length : "";
-  if (!D.open.length) {
-    const c = document.createElement("div"); c.className = "card empty";
-    const near = D.radar.filter(r => !r.in_position).sort((a, b) => a.gap_pct - b.gap_pct)[0];
-    c.innerHTML = `Chưa có vị thế mở.<br>Bot đang chờ một coin đóng nến H4 vượt đỉnh ${D.meta.lookback} nến.` +
-      (near ? `<br><br>Gần nhất: <b>${coin(near.symbol)}</b>, cần tăng thêm <b class="num">${liveGap(near).toFixed(1)}%</b>.` : "");
-    box.appendChild(c); return;
-  }
-  for (const t of D.open) {
-    const { p, upnl, r } = openPnl(t);
-    const toStop = (t.stop / p - 1) * 100;
-    const span = t.extreme - t.sl0, prog = span > 0 ? Math.min(Math.max((p - t.sl0) / span, 0), 1) : 0;
-    const c = document.createElement("div"); c.className = "card";
-    c.innerHTML = `
-      <div class="row"><div><span class="sym">${coin(t.symbol)}</span> <span class="sub">LONG · ${t.bars}/180 nến H4</span></div>
-        <span class="chip ${cls(r)} num">${r >= 0 ? "+" : ""}${r.toFixed(2)}R</span></div>
-      <div class="row" style="margin-top:4px"><span class="sub">Vào ${fmtD(t.entry_time)} @ <span class="num">${px(t.entry)}</span></span>
-        <b class="num ${cls(upnl)}">${sgnUsd(upnl)}</b></div>
-      <div class="grid3">
-        <div><span>Giá hiện tại</span><b class="num">${px(p)}</b></div>
-        <div><span>Stop (trailing)</span><b class="num">${px(t.stop)}</b></div>
-        <div><span>Cách stop</span><b class="num ${toStop > -3 ? "neg" : ""}">${toStop.toFixed(1)}%</b></div>
-        <div><span>Đỉnh từ lúc vào</span><b class="num">${px(t.extreme)}</b></div>
-        <div><span>SL ban đầu</span><b class="num">${px(t.sl0)}</b></div>
-        <div><span>Notional</span><b class="num">${usd(t.notional)}</b></div>
-      </div>
-      <div class="bar" title="Giá nằm ở đâu giữa SL ban đầu và đỉnh"><i style="width:${(prog * 100).toFixed(0)}%"></i></div>
-      <div class="sub" style="margin-top:4px">Vị trí giá giữa SL ban đầu và đỉnh: ${(prog * 100).toFixed(0)}%</div>`;
-    box.appendChild(c);
-  }
-}
-
-function liveGap(r) { const p = live[r.symbol] || r.price; return (r.ceiling / p - 1) * 100; }
-
-function spark(svg, arr) {
-  const lo = Math.min(...arr), hi = Math.max(...arr), W = 74, H = 26;
-  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-  el("path", { d: arr.map((v, i) => (i ? "L" : "M") + (i / (arr.length - 1) * W).toFixed(1) + "," + (2 + (1 - (v - lo) / (hi - lo || 1)) * (H - 4)).toFixed(1)).join(""),
-    fill: "none", stroke: "var(--ink-3)", "stroke-width": 1.5 }, svg);
-}
-
+// ------------------------------------------------------------ RADAR
+const gapNow = r => (r.ceiling / (live[r.symbol] || r.price) - 1) * 100;
 function renderRadar() {
-  const box = $("tab-radar"); box.replaceChildren();
-  const rows = [...D.radar].sort((a, b) => (b.in_position - a.in_position) || (liveGap(a) - liveGap(b)));
+  const box = $("rList"); box.replaceChildren();
+  if (!R) { box.innerHTML = `<div class="empty">Chưa có dữ liệu radar.</div>`; return; }
+  const open = new Set(openTrades().map(t => t.symbol));
+  const rows = [...R].sort((a, b) => (open.has(b.symbol) - open.has(a.symbol)) || (gapNow(a) - gapNow(b)));
   for (const r of rows) {
-    const g = liveGap(r), d = document.createElement("div"); d.className = "radar";
-    const state = r.in_position ? `<b class="pos">Đang giữ lệnh</b><span class="sub">bỏ qua tín hiệu</span>`
-      : g <= 0 ? `<b class="pos">Đã vượt đỉnh</b><span class="sub">chờ nến H4 đóng</span>`
-      : `<b class="num">+${g.toFixed(1)}%</b><span class="sub">tới đỉnh ${D.meta.lookback} nến</span>`;
-    d.innerHTML = `<div><div class="sym">${coin(r.symbol)}</div><div class="sub num">${px(live[r.symbol] || r.price)} · ATR ${r.atr_pct.toFixed(1)}%</div></div><svg aria-hidden="true"></svg><div class="gap">${state}</div>`;
+    const g = gapNow(r), d = document.createElement("div"); d.className = "radar";
+    const fill = Math.max(4, Math.min(100, 100 - g * 4));
+    const state = open.has(r.symbol) ? `<b class="pos">Đang giữ</b><div class="small">bỏ qua tín hiệu</div>`
+      : g <= 0 ? `<b class="pos">Đã vượt</b><div class="small">chờ nến H4 đóng</div>`
+      : `<b>+${g.toFixed(1)}%</b><div class="gbar"><i style="width:${fill.toFixed(0)}%"></i></div>`;
+    d.innerHTML = `<div style="min-width:0"><div class="sym" style="font-size:16px">${coin(r.symbol)}</div><div class="small">${px(live[r.symbol] || r.price)} · ATR ${r.atr_pct.toFixed(1)}%</div></div>
+      <svg aria-hidden="true"></svg><div class="gap">${state}</div>`;
     spark(d.querySelector("svg"), r.spark);
     box.appendChild(d);
   }
-  const n = document.createElement("div"); n.className = "note"; n.style.marginTop = "8px";
-  n.textContent = `Đường nhỏ là giá đóng 60 nến H4 gần nhất (10 ngày). Phần trăm là mức giá cần tăng để vượt đỉnh ${D.meta.lookback} nến H4; tín hiệu chỉ tính khi nến H4 đóng cửa trên mức đó.`;
-  box.appendChild(n);
+}
+function spark(svg, arr) {
+  const lo = Math.min(...arr), hi = Math.max(...arr), W = 78, H = 28, up = arr[arr.length - 1] >= arr[0];
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  el("path", { d: arr.map((v, i) => (i ? "L" : "M") + (i / (arr.length - 1) * W).toFixed(1) + "," + (2 + (1 - (v - lo) / (hi - lo || 1)) * (H - 4)).toFixed(1)).join(""),
+    fill: "none", stroke: up ? "var(--pos)" : "var(--neg)", "stroke-width": 1.6, "stroke-linejoin": "round" }, svg);
 }
 
+// ------------------------------------------------------------ LỊCH SỬ
 function renderHist() {
-  const box = $("tab-hist"); box.replaceChildren();
-  $("nHist").textContent = D.closed.length || "";
-  if (!D.closed.length) { box.innerHTML = `<div class="empty">Chưa có lệnh đóng.</div>`; return; }
-  for (const t of D.closed) {
+  const ct = closedTrades(), box = $("lList"); box.replaceChildren();
+  const tot = ct.reduce((a, t) => a + (t.pnl || 0), 0);
+  $("lSub").innerHTML = `${ct.length} lệnh · tổng <b class="mono ${cls(tot)}">${sUsd(tot)}</b> (chưa trừ phí ${usd(-V.fees)} và funding ${usd(-V.funding)})`;
+  if (!ct.length) { box.innerHTML = `<div class="empty">Chưa có lệnh đóng.</div>`; return; }
+  for (const t of ct) {
     const d = document.createElement("div"); d.className = "hist";
-    d.innerHTML = `<div class="row"><div><span class="sym">${coin(t.symbol)}</span>${t.backfill ? `<span class="tag" title="Lệnh trước ngày bật bot, tính lại từ dữ liệu quá khứ">QUÁ KHỨ</span>` : ""}</div>
-      <span class="chip ${cls(t.pnl)} num">${t.r >= 0 ? "+" : ""}${t.r.toFixed(2)}R · ${sgnUsd(t.pnl)}</span></div>
-      <div class="sub num">${fmtD(t.entry_time)} → ${fmtD(t.exit_time)} · ${px(t.entry)} → ${px(t.exit_px)} · ${why[t.reason] || t.reason}</div>`;
+    const ret = t.exit ? (t.exit / t.entry - 1) * 100 : 0;
+    d.innerHTML = `<div class="row"><div class="tags"><span class="sym" style="font-size:16px">${coin(t.symbol)}</span><span class="tag long">LONG</span><span class="tag">${why[t.reason] || t.reason || ""}</span></div>
+        <span class="badge ${cls(t.pnl || 0)}">${t.pnl == null ? "–" : sUsd(t.pnl)}</span></div>
+      <div class="small">${dm(t.opened)} → ${t.exit_time ? dm(t.exit_time) : "?"} · ${px(t.entry)} → ${t.exit ? px(+t.exit) : "?"} (${pct(ret)})${t.r != null ? " · " + (t.r >= 0 ? "+" : "") + t.r.toFixed(2) + "R" : ""}</div>`;
     box.appendChild(d);
   }
 }
 
+// ------------------------------------------------------------ CƠ CHẾ
 function renderRules() {
-  const m = D.meta;
-  $("rules").innerHTML = `<b>Luật (giống bot thật):</b> chỉ LONG, khung H4, ${m.symbols.length} coin (${m.symbols.map(coin).join(", ")}). Vào khi nến H4 đóng vượt đỉnh ${m.lookback} nến trước${m.vol_mult ? `, volume nến đó lớn hơn ${m.vol_mult}× trung bình 20 nến (lọc này áp dụng từ ${m.vol_from}, giống bot)` : ""}.
-    SL ${m.trail_atr}×ATR, kéo lên theo đỉnh, giữ tối đa 30 ngày. Rủi ro ${m.risk_pct}% vốn mỗi lệnh, lãi kép, tổng vị thế tối đa ${m.cap}× vốn. Phí ${(+m.fee_pct).toFixed(2)}%/chiều và funding thật.<br><br>
-    <b>Đây là mô phỏng, không phải tài khoản thật.</b> Lệnh có nhãn QUÁ KHỨ được tính lại từ dữ liệu trước ngày bật bot (${m.deployed_at.slice(0, 10)}). Giá thoát là mức stop; vào lệnh thật có trượt giá.` +
-    (m.source && m.source.klines === "spot" ? `<br><br>Nguồn giá: GitHub bị Binance chặn API futures nên engine dùng nến spot công khai của Binance (chênh với futures thường dưới 0.1%) và funding theo file tháng; tháng chưa có file thì lấy trung bình tháng trước.` : "");
-}
-
-function renderAll() { renderHero(); drawChart(); renderOpen(); renderRadar(); renderHist(); renderRules(); }
-
-// ---------------------------------------------------------------- real account
-const whyReal = { sl: "SL ban đầu", trail: "Trailing", time: "Hết 30 ngày", closed_on_exchange: "Stop trên sàn" };
-function realOpen() {
-  return (V.trades || []).filter(t => t.status === "open").map(t => {
-    const p = live[t.symbol] || t.mark || t.entry;
-    return { ...t, p, upnl: (p - t.entry) * t.qty, r: t.sl0 ? (p - t.entry) / (t.entry - t.sl0) : 0 };
-  });
-}
-function renderRealHero() {
-  const op = realOpen(), upnl = op.reduce((a, t) => a + t.upnl, 0);
-  const wallet = V.wallet != null ? V.wallet : V.capital + V.realized;
-  const eq = wallet + upnl, ch = eq - V.capital, r = ch / V.capital * 100;
-  $("rEq").textContent = usd(eq, 2);
-  $("rChg").innerHTML = `<span class="${cls(ch)}">${sgnUsd(ch)} (${pct(r, 2)})</span> <span class="sub">so với vốn ${usd(V.capital)} · từ ${fmtD(V.since)}/${V.since.slice(0, 4)}</span>`;
-  const closed = (V.trades || []).filter(t => t.status === "closed" && t.pnl != null);
-  $("rReal").textContent = sgnUsd(V.realized);
-  $("rFee").textContent = sgnUsd(V.fees + V.funding);
-  $("rN").textContent = closed.length + (op.length ? ` +${op.length}` : "");
-  $("rWr").textContent = closed.length ? Math.round(closed.filter(t => t.pnl > 0).length / closed.length * 100) + "%" : "–";
-  $("rSub").textContent = `Ví ${usd(wallet, 2)} · khả dụng ${V.available != null ? usd(V.available, 2) : "–"} · lãi tạm ${sgnUsd(upnl)} · ` +
-    `${V.env === "live" ? "TIỀN THẬT" : "DEMO"}, ${V.auto_trade ? "tự giao dịch" : "auto-trade tắt"}, rủi ro ${V.risk_pct}%/lệnh`;
-}
-function renderRealOpen() {
-  const box = $("rOpen"); box.replaceChildren();
-  const op = realOpen();
-  if (!op.length) {
-    const c = document.createElement("div"); c.className = "card empty";
-    c.innerHTML = "Bot chưa có vị thế thật nào đang mở.<br>Lệnh mới chỉ mở khi một coin đóng nến H4 vượt đỉnh 100 nến, kèm volume lớn.";
-    box.appendChild(c); return;
-  }
-  for (const t of op) {
-    const toStop = (t.stop / t.p - 1) * 100, c = document.createElement("div"); c.className = "card";
-    c.innerHTML = `
-      <div class="row"><div><span class="sym">${coin(t.symbol)}</span> <span class="sub">LONG · ${t.qty} · x${t.lev}</span></div>
-        <span class="chip ${cls(t.r)} num">${t.r >= 0 ? "+" : ""}${t.r.toFixed(2)}R</span></div>
-      <div class="row" style="margin-top:4px"><span class="sub">Vào ${fmtD(t.opened)} @ <span class="num">${px(t.entry)}</span></span>
-        <b class="num ${cls(t.upnl)}">${sgnUsd(t.upnl)}</b></div>
-      <div class="grid3">
-        <div><span>Giá hiện tại</span><b class="num">${px(t.p)}</b></div>
-        <div><span>Stop trên sàn</span><b class="num">${px(t.stop)}</b></div>
-        <div><span>Cách stop</span><b class="num ${toStop > -3 ? "neg" : ""}">${toStop.toFixed(1)}%</b></div>
-        <div><span>SL ban đầu</span><b class="num">${px(t.sl0)}</b></div>
-        <div><span>Notional</span><b class="num">${usd(t.notional)}</b></div>
-        <div><span>Lần dời stop</span><b class="num">${t.n_stop_moves ?? "–"}</b></div>
-      </div>`;
-    box.appendChild(c);
-  }
-}
-function renderRealHist() {
-  const box = $("rHist"); box.replaceChildren();
-  const closed = (V.trades || []).filter(t => t.status === "closed");
-  const h = document.createElement("div"); h.className = "sub"; h.style.marginBottom = "6px"; h.textContent = `Lịch sử lệnh thật · ${closed.length} lệnh`;
-  box.appendChild(h);
-  if (!closed.length) { box.insertAdjacentHTML("beforeend", `<div class="empty">Chưa có lệnh đóng.</div>`); return; }
-  for (const t of closed) {
-    const d = document.createElement("div"); d.className = "hist";
-    const chip = t.pnl == null ? "–" : `${t.r != null ? (t.r >= 0 ? "+" : "") + t.r.toFixed(2) + "R · " : ""}${sgnUsd(t.pnl)}`;
-    d.innerHTML = `<div class="row"><span class="sym">${coin(t.symbol)}</span><span class="chip ${cls(t.pnl || 0)} num">${chip}</span></div>
-      <div class="sub num">${fmtD(t.opened)} → ${t.exit_time ? fmtD(t.exit_time) : "?"} · ${px(t.entry)} → ${t.exit ? px(+t.exit) : "?"} · ${whyReal[t.reason] || t.reason || ""}</div>`;
-    box.appendChild(d);
-  }
-}
-function renderReal() {
-  if (!V) { $("rOpen").innerHTML = `<div class="card empty">Chưa có số liệu tài khoản thật.</div>`; return; }
-  renderRealHero();
-  const cur = [...V.curve];
-  if (V.wallet != null) cur.push([new Date().toISOString().slice(0, 16).replace("T", " "), V.wallet]);
-  drawChart("rChart", "rChartBox", "rTip", cur, V.capital);
-  renderRealOpen(); renderRealHist();
-  $("rNote").innerHTML = `<b>Tài khoản thật của bot MEKVRO</b> (Binance Futures). Số dư, lệnh và lãi/lỗ đã chốt lấy từ sổ của bot và Binance (chỉ đọc), cập nhật mỗi giờ; lần gần nhất ${fmtD(V.updated)} ${V.updated.slice(11)} UTC. Giá và lãi tạm nhảy theo Binance mỗi 5 giây. Lãi/lỗ từng lệnh chưa trừ phí; phí và funding cộng riêng ở trên.` +
+  const items = [
+    ["🚀", "Vào lệnh", "Nến H4 đóng cửa vượt đỉnh cao nhất của 100 nến H4 trước, lần đầu sau khi chưa vượt, và volume nến đó lớn hơn 1,5× trung bình 20 nến."],
+    ["🛑", "Stop ban đầu", "Giá vào trừ 6×ATR(14) H4. Lệnh stop đặt thật trên sàn ngay khi vào."],
+    ["🔄", "Trailing", "Stop = đỉnh cao nhất từ lúc vào trừ 6×ATR, chỉ nâng lên, không bao giờ hạ. Không có TP cố định."],
+    ["⏳", "Thời gian", "Giữ tối đa 30 ngày (180 nến H4) rồi đóng."],
+    ["⚖️", "Khối lượng", `Rủi ro ${V.risk_pct}% số dư mỗi lệnh (hiện khoảng ${usd((V.wallet || V.capital) * V.risk_pct / 100, 0)}), lãi kép theo số dư. Đòn bẩy tối đa 3×, tổng vị thế tối đa 3× vốn.`],
+    ["🪙", "Coin", "BTC, ETH, SOL, BNB, ZEC, AVAX, XRP, NEAR. Mỗi coin tối đa một lệnh."],
+  ];
+  $("rules").innerHTML = items.map(([i, b, s]) => `<div class="rule"><div class="ico">${i}</div><div><b>${b}</b><span>${s}</span></div></div>`).join("");
+  $("srcNote").innerHTML = `<b>${V.env === "live" ? "Tài khoản TIỀN THẬT" : "Tài khoản DEMO"}</b> trên Binance Futures, ${V.auto_trade ? "bot đang tự giao dịch" : "auto-trade đang TẮT"}. ` +
+    `Số dư, lệnh và lãi/lỗ đã chốt lấy từ sổ của bot và Binance (chỉ đọc), cập nhật mỗi giờ; lần gần nhất ${dm(V.updated)} ${V.updated.slice(11)} UTC. ` +
+    `Giá và lãi tạm nhảy theo Binance mỗi 5 giây. Lãi/lỗ từng lệnh chưa trừ phí. Ngày giờ theo UTC.` +
     (V.error ? `<br><br><span class="neg">Lần cập nhật gần nhất không đọc được sàn: ${V.error}</span>` : "");
 }
 
-let mode = "real";
-function showMode() {
-  $("realView").hidden = mode !== "real"; $("paperView").hidden = mode !== "paper";
-  $("modeBadge").textContent = mode === "real" ? "TIỀN THẬT" : "PAPER";
-  document.querySelectorAll("#modeNav button").forEach(x => x.setAttribute("aria-selected", x.dataset.mode === mode));
-  if (mode === "real") renderReal(); else renderAll();
+// ------------------------------------------------------------ navigation
+function render() {
+  for (const k of ["home", "chart", "radar", "hist", "rules"]) $("v-" + k).hidden = k !== view;
+  document.querySelectorAll("#nav button").forEach(b => b.setAttribute("aria-selected", b.dataset.v === view));
+  ({ home: renderHome, chart: renderChart, radar: renderRadar, hist: renderHist, rules: renderRules })[view]();
 }
-document.querySelectorAll("#modeNav button").forEach(b => b.addEventListener("click", () => {
-  mode = b.dataset.mode; showMode();
+document.querySelectorAll("#nav button").forEach(b => b.addEventListener("click", () => {
+  view = b.dataset.v; render(); window.scrollTo({ top: 0 });
   if (tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
 }));
 
-// ---------------------------------------------------------------- password + decryption
+// ------------------------------------------------------------ password + decryption
 const PW_KEY = "mekvro_pw";
 const b64d = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 async function openVault(v, pw) {
-  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveKey"]);
-  const key = await crypto.subtle.deriveKey({ name: "PBKDF2", salt: b64d(v.salt), iterations: v.iter, hash: "SHA-256" }, base,
+  const k0 = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveKey"]);
+  const key = await crypto.subtle.deriveKey({ name: "PBKDF2", salt: b64d(v.salt), iterations: v.iter, hash: "SHA-256" }, k0,
     { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
-  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64d(v.iv) }, key, b64d(v.ct));
-  return JSON.parse(new TextDecoder().decode(pt));
+  return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64d(v.iv) }, key, b64d(v.ct))));
 }
 const cloud = () => (tg && tg.CloudStorage && tg.isVersionAtLeast && tg.isVersionAtLeast("6.9")) ? tg.CloudStorage : null;
 function getPw() {
@@ -426,62 +474,45 @@ function setPw(v) {
   try { v ? localStorage.setItem(PW_KEY, v) : localStorage.removeItem(PW_KEY); } catch (e) {}
   try { if (cloud()) v ? cloud().setItem(PW_KEY, v) : cloud().removeItem(PW_KEY); } catch (e) {}
 }
-let V = null, PW = null;
 function showLock(msg) {
-  $("lock").hidden = false; $("modeNav").hidden = true; $("realView").hidden = true; $("paperView").hidden = true; $("forget").hidden = true;
-  $("lockErr").hidden = !msg; $("lockErr").textContent = msg || "";
-  $("upd").textContent = "Đã khóa";
+  $("lock").hidden = false; $("nav").hidden = true;
+  for (const k of ["home", "chart", "radar", "hist", "rules"]) $("v-" + k).hidden = true;
+  $("lockErr").hidden = !msg; $("lockErr").textContent = msg || ""; $("upd").textContent = "Đã khóa";
 }
-$("lockForm").addEventListener("submit", async e => {
-  e.preventDefault();
-  const v = $("pw").value.trim(); if (!v) return;
-  PW = v; await load(true);
-});
-$("forget").addEventListener("click", () => { setPw(null); PW = null; D = V = null; $("pw").value = ""; showLock(); });
-
-
-document.querySelectorAll(".tabs:not(.mode) button").forEach(b => b.addEventListener("click", () => {
-  tab = b.dataset.tab;
-  document.querySelectorAll(".tabs:not(.mode) button").forEach(x => x.setAttribute("aria-selected", x === b));
-  for (const k of ["open", "radar", "hist"]) $("tab-" + k).hidden = k !== tab;
-  if (tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
-}));
+$("lockForm").addEventListener("submit", async e => { e.preventDefault(); const v = $("pw").value.trim(); if (v) { PW = v; await load(true); } });
+$("forget").addEventListener("click", () => { setPw(null); PW = null; V = R = null; $("pw").value = ""; showLock(); });
 
 async function load(fromForm = false) {
   let vault;
   try {
     const r = await fetch(`data/vault.json?t=${Date.now()}`, { cache: "no-store" });
     if (!r.ok) throw new Error("HTTP " + r.status);
-    vault = await r.json();
-    $("err").hidden = true;
-  } catch (e) {
-    $("err").hidden = false; $("err").textContent = "Không tải được dữ liệu (" + e.message + "). Thử lại sau ít phút."; return;
-  }
+    vault = await r.json(); $("err").hidden = true;
+  } catch (e) { $("err").hidden = false; $("err").textContent = "Không tải được dữ liệu (" + e.message + "). Thử lại sau ít phút."; return; }
   if (!PW) PW = await getPw();
   if (!PW) { showLock(); return; }
   let obj;
   try { obj = await openVault(vault, PW); }
   catch (e) { PW = null; setPw(null); showLock(fromForm ? "Sai mật khẩu." : "Mật khẩu đã lưu không còn đúng, nhập lại."); return; }
   setPw(PW);
-  D = obj.paper; V = obj.live;
-  $("lock").hidden = true; $("modeNav").hidden = false; $("forget").hidden = false;
-  $("upd").textContent = "Cập nhật " + ago((V && V.updated) || D.meta.updated);
-  showMode();
+  V = obj.live; R = obj.paper ? obj.paper.radar : null;
+  if (!V) { $("err").hidden = false; $("err").textContent = "Chưa có số liệu tài khoản thật."; return; }
+  $("lock").hidden = true; $("nav").hidden = false;
+  $("envBadge").textContent = V.env === "live" ? "LIVE" : "DEMO";
+  $("upd").textContent = "Cập nhật " + ago(V.updated);
+  render();
 }
-
 async function tick() {
-  if (!D || document.hidden) return;
+  if (!V || document.hidden) return;
   try {
     const r = await fetch("https://fapi.binance.com/fapi/v1/ticker/price", { cache: "no-store" });
-    const arr = await r.json(), want = new Set([...D.meta.symbols, ...((V && V.trades) || []).map(t => t.symbol)]);
-    for (const x of arr) if (want.has(x.symbol)) live[x.symbol] = +x.price;
+    const want = new Set([...(V.trades || []).map(t => t.symbol), ...((R || []).map(x => x.symbol))]);
+    for (const x of await r.json()) if (want.has(x.symbol)) live[x.symbol] = +x.price;
     $("liveDot").classList.add("on");
-    if (mode === "real") { if (V) { renderRealHero(); renderRealOpen(); } }
-    else { renderHero(); if (tab === "open") renderOpen(); if (tab === "radar") renderRadar(); }
+    if (view === "home") renderHome(); else if (view === "radar") renderRadar();
   } catch (e) { $("liveDot").classList.remove("on"); }
 }
-
-let rz; window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => D && showMode(), 120); });
+let rz; window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => V && view === "chart" && renderChart(), 120); });
 load().then(tick);
 setInterval(tick, 5000);
 setInterval(load, 5 * 60 * 1000);
