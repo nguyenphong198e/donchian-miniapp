@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Donchian H4 · Paper</title>
+<title>MEKVRO · Donchian H4</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
   :root {
@@ -69,17 +69,58 @@
   .note { font-size: 12px; color: var(--ink-3); line-height: 1.5; }
   .note b { color: var(--ink-2); }
   .err { background: var(--neg-bg); color: var(--neg); border-radius: 10px; padding: 10px; font-size: 13px; }
+  .mode { grid-template-columns: repeat(2, 1fr); position: static; }
+  .lock h2 { font-size: 17px; margin: 0 0 4px; }
+  .lock form { display: flex; gap: 8px; margin-top: 12px; }
+  .lock input { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+  .lock button, .linkbtn { border: 0; border-radius: 10px; padding: 10px 16px; font: inherit; font-weight: 700; background: var(--accent); color: var(--tg-theme-button-text-color, #fff); cursor: pointer; }
+  .linkbtn { background: transparent; color: var(--ink-3); font-weight: 600; font-size: 12px; padding: 4px 0; }
   [hidden] { display: none !important; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>Donchian H4 <span class="badge">PAPER</span></h1>
+    <h1>MEKVRO <span class="badge" id="modeBadge">DONCHIAN H4</span></h1>
     <div class="upd"><span class="dot" id="liveDot"></span><span id="upd">Đang tải…</span></div>
   </header>
   <div class="err" id="err" hidden></div>
 
+  <section class="card lock" id="lock" hidden>
+    <h2>🔒 Dữ liệu đã khóa</h2>
+    <div class="sub">Số liệu tài khoản được mã hóa. Nhập mật khẩu một lần, Telegram trên máy này sẽ nhớ.</div>
+    <form id="lockForm" autocomplete="on">
+      <input id="pw" type="password" autocomplete="current-password" placeholder="Mật khẩu" aria-label="Mật khẩu">
+      <button type="submit">Mở</button>
+    </form>
+    <div class="err" id="lockErr" style="margin-top:10px" hidden></div>
+  </section>
+
+  <nav class="tabs mode" id="modeNav" role="tablist" hidden>
+    <button role="tab" aria-selected="true" data-mode="real">Tài khoản thật</button>
+    <button role="tab" aria-selected="false" data-mode="paper">Chạy giấy</button>
+  </nav>
+
+  <div id="realView" class="wrap" style="max-width:none" hidden>
+    <section class="card hero">
+      <div class="lbl" id="rLbl">Tài sản thật</div>
+      <div class="eq num" id="rEq">–</div>
+      <div class="chg num" id="rChg"></div>
+      <div class="kpis">
+        <div class="kpi"><span>Đã chốt</span><b class="num" id="rReal">–</b></div>
+        <div class="kpi"><span>Phí + fund</span><b class="num" id="rFee">–</b></div>
+        <div class="kpi"><span>Lệnh</span><b class="num" id="rN">–</b></div>
+        <div class="kpi"><span>Thắng</span><b class="num" id="rWr">–</b></div>
+      </div>
+      <div class="chart" id="rChartBox"><svg id="rChart" role="img" aria-label="Đường vốn tài khoản thật"></svg><div class="tip" id="rTip" hidden></div></div>
+      <div class="sub" id="rSub" style="margin-top:6px"></div>
+    </section>
+    <section id="rOpen" class="list"></section>
+    <section class="card" id="rHist"></section>
+    <section class="card note" id="rNote"></section>
+  </div>
+
+  <div id="paperView" class="wrap" style="max-width:none" hidden>
   <section class="card hero">
     <div class="lbl" id="heroLbl">Vốn mô phỏng</div>
     <div class="eq num" id="eq">–</div>
@@ -105,6 +146,8 @@
   <section id="tab-hist" class="card" hidden></section>
 
   <section class="card note" id="rules"></section>
+  </div>
+  <button class="linkbtn" id="forget" hidden>Khóa lại / đổi mật khẩu</button>
 </div>
 <script>
 const tg = window.Telegram && window.Telegram.WebApp;
@@ -147,19 +190,21 @@ function renderHero() {
   $("ddNow").textContent = `Đang cách đỉnh vốn ${s.cur_dd_pct.toFixed(1)}% (đỉnh ${usd(s.peak)}) · ${s.trades} lệnh đã đóng · phí ${usd(s.fees)} · funding ${usd(s.funding)}`;
 }
 
-function drawChart() {
-  const svg = $("chart"), box = $("chartBox"), tip = $("tip");
+function drawChart(svgId = "chart", boxId = "chartBox", tipId = "tip", curve = D.curve, base = D.meta.equity0) {
+  const svg = $(svgId), box = $(boxId), tip = $(tipId);
+  if (box.offsetParent === null) return;
   svg.replaceChildren(); tip.hidden = true;
   const W = Math.max(280, box.clientWidth), H = 170, m = { l: 44, r: 6, t: 8, b: 20 };
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-  const pts = D.curve.map(([t, v]) => [parseT(t), v]);
+  const pts = curve.map(([t, v]) => [parseT(t.length === 10 ? t + " 00:00" : t), v]);
+  if (pts.length < 2) pts.push([Date.now(), pts[0][1]]);
   const t0 = pts[0][0], t1 = pts[pts.length - 1][0];
-  let lo = Math.min(...pts.map(p => p[1]), D.meta.equity0), hi = Math.max(...pts.map(p => p[1]));
+  let lo = Math.min(...pts.map(p => p[1]), base), hi = Math.max(...pts.map(p => p[1]));
   const pad = (hi - lo) * 0.08 || 100; lo -= pad; hi += pad;
   const X = t => m.l + (t - t0) / (t1 - t0) * (W - m.l - m.r), Y = v => m.t + (1 - (v - lo) / (hi - lo)) * (H - m.t - m.b);
-  const step = [500, 1000, 2000, 2500, 5000, 10000, 20000].find(s => (hi - lo) / s <= 5) || 50000;
+  const step = [250, 500, 1000, 2000, 2500, 5000, 10000, 20000].find(s => (hi - lo) / s <= 5) || 50000;
   for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
-    el("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: "var(--line)", "stroke-dasharray": v === D.meta.equity0 ? "3 3" : "" }, svg);
+    el("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: "var(--line)", "stroke-dasharray": v === base ? "3 3" : "" }, svg);
     el("text", { x: m.l - 6, y: Y(v) + 3.5, "text-anchor": "end" }, svg).textContent = "$" + (v / 1000).toFixed(v % 1000 ? 1 : 0) + "k";
   }
   const d0 = new Date(t0);
@@ -183,7 +228,7 @@ function drawChart() {
     for (const n of [cross]) { n.setAttribute("x1", x); n.setAttribute("x2", x); n.setAttribute("visibility", "visible"); }
     dotH.setAttribute("cx", x); dotH.setAttribute("cy", Y(pv)); dotH.setAttribute("visibility", "visible");
     const d = new Date(pt);
-    tip.textContent = `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")} · ${usd(pv)} (${pct((pv / D.meta.equity0 - 1) * 100)})`;
+    tip.textContent = `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")} · ${usd(pv)} (${pct((pv / base - 1) * 100)})`;
     tip.hidden = false;
     const px_ = x / W * box.clientWidth, half = tip.offsetWidth / 2;
     tip.style.left = Math.min(Math.max(px_, half), box.clientWidth - half) + "px";
@@ -268,7 +313,7 @@ function renderHist() {
 
 function renderRules() {
   const m = D.meta;
-  $("rules").innerHTML = `<b>Luật (giống bot máy 1):</b> chỉ LONG, khung H4, ${m.symbols.length} coin (${m.symbols.map(coin).join(", ")}). Vào khi nến H4 đóng vượt đỉnh ${m.lookback} nến trước${m.vol_mult ? `, volume nến đó lớn hơn ${m.vol_mult}× trung bình 20 nến (lọc này áp dụng từ ${m.vol_from}, giống bot)` : ""}.
+  $("rules").innerHTML = `<b>Luật (giống bot thật):</b> chỉ LONG, khung H4, ${m.symbols.length} coin (${m.symbols.map(coin).join(", ")}). Vào khi nến H4 đóng vượt đỉnh ${m.lookback} nến trước${m.vol_mult ? `, volume nến đó lớn hơn ${m.vol_mult}× trung bình 20 nến (lọc này áp dụng từ ${m.vol_from}, giống bot)` : ""}.
     SL ${m.trail_atr}×ATR, kéo lên theo đỉnh, giữ tối đa 30 ngày. Rủi ro ${m.risk_pct}% vốn mỗi lệnh, lãi kép, tổng vị thế tối đa ${m.cap}× vốn. Phí ${(+m.fee_pct).toFixed(2)}%/chiều và funding thật.<br><br>
     <b>Đây là mô phỏng, không phải tài khoản thật.</b> Lệnh có nhãn QUÁ KHỨ được tính lại từ dữ liệu trước ngày bật bot (${m.deployed_at.slice(0, 10)}). Giá thoát là mức stop; vào lệnh thật có trượt giá.` +
     (m.source && m.source.klines === "spot" ? `<br><br>Nguồn giá: GitHub bị Binance chặn API futures nên engine dùng nến spot công khai của Binance (chênh với futures thường dưới 0.1%) và funding theo file tháng; tháng chưa có file thì lấy trung bình tháng trước.` : "");
@@ -276,38 +321,167 @@ function renderRules() {
 
 function renderAll() { renderHero(); drawChart(); renderOpen(); renderRadar(); renderHist(); renderRules(); }
 
-document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => {
+// ---------------------------------------------------------------- real account
+const whyReal = { sl: "SL ban đầu", trail: "Trailing", time: "Hết 30 ngày", closed_on_exchange: "Stop trên sàn" };
+function realOpen() {
+  return (V.trades || []).filter(t => t.status === "open").map(t => {
+    const p = live[t.symbol] || t.mark || t.entry;
+    return { ...t, p, upnl: (p - t.entry) * t.qty, r: t.sl0 ? (p - t.entry) / (t.entry - t.sl0) : 0 };
+  });
+}
+function renderRealHero() {
+  const op = realOpen(), upnl = op.reduce((a, t) => a + t.upnl, 0);
+  const wallet = V.wallet != null ? V.wallet : V.capital + V.realized;
+  const eq = wallet + upnl, ch = eq - V.capital, r = ch / V.capital * 100;
+  $("rEq").textContent = usd(eq, 2);
+  $("rChg").innerHTML = `<span class="${cls(ch)}">${sgnUsd(ch)} (${pct(r, 2)})</span> <span class="sub">so với vốn ${usd(V.capital)} · từ ${fmtD(V.since)}/${V.since.slice(0, 4)}</span>`;
+  const closed = (V.trades || []).filter(t => t.status === "closed" && t.pnl != null);
+  $("rReal").textContent = sgnUsd(V.realized);
+  $("rFee").textContent = sgnUsd(V.fees + V.funding);
+  $("rN").textContent = closed.length + (op.length ? ` +${op.length}` : "");
+  $("rWr").textContent = closed.length ? Math.round(closed.filter(t => t.pnl > 0).length / closed.length * 100) + "%" : "–";
+  $("rSub").textContent = `Ví ${usd(wallet, 2)} · khả dụng ${V.available != null ? usd(V.available, 2) : "–"} · lãi tạm ${sgnUsd(upnl)} · ` +
+    `${V.env === "live" ? "TIỀN THẬT" : "DEMO"}, ${V.auto_trade ? "tự giao dịch" : "auto-trade tắt"}, rủi ro ${V.risk_pct}%/lệnh`;
+}
+function renderRealOpen() {
+  const box = $("rOpen"); box.replaceChildren();
+  const op = realOpen();
+  if (!op.length) {
+    const c = document.createElement("div"); c.className = "card empty";
+    c.innerHTML = "Bot chưa có vị thế thật nào đang mở.<br>Lệnh mới chỉ mở khi một coin đóng nến H4 vượt đỉnh 100 nến, kèm volume lớn.";
+    box.appendChild(c); return;
+  }
+  for (const t of op) {
+    const toStop = (t.stop / t.p - 1) * 100, c = document.createElement("div"); c.className = "card";
+    c.innerHTML = `
+      <div class="row"><div><span class="sym">${coin(t.symbol)}</span> <span class="sub">LONG · ${t.qty} · x${t.lev}</span></div>
+        <span class="chip ${cls(t.r)} num">${t.r >= 0 ? "+" : ""}${t.r.toFixed(2)}R</span></div>
+      <div class="row" style="margin-top:4px"><span class="sub">Vào ${fmtD(t.opened)} @ <span class="num">${px(t.entry)}</span></span>
+        <b class="num ${cls(t.upnl)}">${sgnUsd(t.upnl)}</b></div>
+      <div class="grid3">
+        <div><span>Giá hiện tại</span><b class="num">${px(t.p)}</b></div>
+        <div><span>Stop trên sàn</span><b class="num">${px(t.stop)}</b></div>
+        <div><span>Cách stop</span><b class="num ${toStop > -3 ? "neg" : ""}">${toStop.toFixed(1)}%</b></div>
+        <div><span>SL ban đầu</span><b class="num">${px(t.sl0)}</b></div>
+        <div><span>Notional</span><b class="num">${usd(t.notional)}</b></div>
+        <div><span>Lần dời stop</span><b class="num">${t.n_stop_moves ?? "–"}</b></div>
+      </div>`;
+    box.appendChild(c);
+  }
+}
+function renderRealHist() {
+  const box = $("rHist"); box.replaceChildren();
+  const closed = (V.trades || []).filter(t => t.status === "closed");
+  const h = document.createElement("div"); h.className = "sub"; h.style.marginBottom = "6px"; h.textContent = `Lịch sử lệnh thật · ${closed.length} lệnh`;
+  box.appendChild(h);
+  if (!closed.length) { box.insertAdjacentHTML("beforeend", `<div class="empty">Chưa có lệnh đóng.</div>`); return; }
+  for (const t of closed) {
+    const d = document.createElement("div"); d.className = "hist";
+    const chip = t.pnl == null ? "–" : `${t.r != null ? (t.r >= 0 ? "+" : "") + t.r.toFixed(2) + "R · " : ""}${sgnUsd(t.pnl)}`;
+    d.innerHTML = `<div class="row"><span class="sym">${coin(t.symbol)}</span><span class="chip ${cls(t.pnl || 0)} num">${chip}</span></div>
+      <div class="sub num">${fmtD(t.opened)} → ${t.exit_time ? fmtD(t.exit_time) : "?"} · ${px(t.entry)} → ${t.exit ? px(+t.exit) : "?"} · ${whyReal[t.reason] || t.reason || ""}</div>`;
+    box.appendChild(d);
+  }
+}
+function renderReal() {
+  if (!V) { $("rOpen").innerHTML = `<div class="card empty">Chưa có số liệu tài khoản thật.</div>`; return; }
+  renderRealHero();
+  const cur = [...V.curve];
+  if (V.wallet != null) cur.push([new Date().toISOString().slice(0, 16).replace("T", " "), V.wallet]);
+  drawChart("rChart", "rChartBox", "rTip", cur, V.capital);
+  renderRealOpen(); renderRealHist();
+  $("rNote").innerHTML = `<b>Tài khoản thật của bot MEKVRO</b> (Binance Futures). Số dư, lệnh và lãi/lỗ đã chốt lấy từ sổ của bot và Binance (chỉ đọc), cập nhật mỗi giờ; lần gần nhất ${fmtD(V.updated)} ${V.updated.slice(11)} UTC. Giá và lãi tạm nhảy theo Binance mỗi 5 giây. Lãi/lỗ từng lệnh chưa trừ phí; phí và funding cộng riêng ở trên.` +
+    (V.error ? `<br><br><span class="neg">Lần cập nhật gần nhất không đọc được sàn: ${V.error}</span>` : "");
+}
+
+let mode = "real";
+function showMode() {
+  $("realView").hidden = mode !== "real"; $("paperView").hidden = mode !== "paper";
+  $("modeBadge").textContent = mode === "real" ? "TIỀN THẬT" : "PAPER";
+  document.querySelectorAll("#modeNav button").forEach(x => x.setAttribute("aria-selected", x.dataset.mode === mode));
+  if (mode === "real") renderReal(); else renderAll();
+}
+document.querySelectorAll("#modeNav button").forEach(b => b.addEventListener("click", () => {
+  mode = b.dataset.mode; showMode();
+  if (tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
+}));
+
+// ---------------------------------------------------------------- password + decryption
+const PW_KEY = "mekvro_pw";
+const b64d = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function openVault(v, pw) {
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveKey"]);
+  const key = await crypto.subtle.deriveKey({ name: "PBKDF2", salt: b64d(v.salt), iterations: v.iter, hash: "SHA-256" }, base,
+    { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64d(v.iv) }, key, b64d(v.ct));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+const cloud = () => (tg && tg.CloudStorage && tg.isVersionAtLeast && tg.isVersionAtLeast("6.9")) ? tg.CloudStorage : null;
+function getPw() {
+  let v = null; try { v = localStorage.getItem(PW_KEY); } catch (e) {}
+  if (v || !cloud()) return Promise.resolve(v);
+  return new Promise(res => cloud().getItem(PW_KEY, (err, val) => res(err ? null : val || null)));
+}
+function setPw(v) {
+  try { v ? localStorage.setItem(PW_KEY, v) : localStorage.removeItem(PW_KEY); } catch (e) {}
+  try { if (cloud()) v ? cloud().setItem(PW_KEY, v) : cloud().removeItem(PW_KEY); } catch (e) {}
+}
+let V = null, PW = null;
+function showLock(msg) {
+  $("lock").hidden = false; $("modeNav").hidden = true; $("realView").hidden = true; $("paperView").hidden = true; $("forget").hidden = true;
+  $("lockErr").hidden = !msg; $("lockErr").textContent = msg || "";
+  $("upd").textContent = "Đã khóa";
+}
+$("lockForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const v = $("pw").value.trim(); if (!v) return;
+  PW = v; await load(true);
+});
+$("forget").addEventListener("click", () => { setPw(null); PW = null; D = V = null; $("pw").value = ""; showLock(); });
+
+
+document.querySelectorAll(".tabs:not(.mode) button").forEach(b => b.addEventListener("click", () => {
   tab = b.dataset.tab;
-  document.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-selected", x === b));
+  document.querySelectorAll(".tabs:not(.mode) button").forEach(x => x.setAttribute("aria-selected", x === b));
   for (const k of ["open", "radar", "hist"]) $("tab-" + k).hidden = k !== tab;
   if (tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
 }));
 
-async function load() {
+async function load(fromForm = false) {
+  let vault;
   try {
-    const r = await fetch(`data/dashboard.json?t=${Date.now()}`, { cache: "no-store" });
+    const r = await fetch(`data/vault.json?t=${Date.now()}`, { cache: "no-store" });
     if (!r.ok) throw new Error("HTTP " + r.status);
-    D = await r.json();
+    vault = await r.json();
     $("err").hidden = true;
-    $("upd").textContent = "Cập nhật " + ago(D.meta.updated);
-    renderAll();
   } catch (e) {
-    $("err").hidden = false; $("err").textContent = "Không tải được dữ liệu (" + e.message + "). Thử lại sau ít phút.";
+    $("err").hidden = false; $("err").textContent = "Không tải được dữ liệu (" + e.message + "). Thử lại sau ít phút."; return;
   }
+  if (!PW) PW = await getPw();
+  if (!PW) { showLock(); return; }
+  let obj;
+  try { obj = await openVault(vault, PW); }
+  catch (e) { PW = null; setPw(null); showLock(fromForm ? "Sai mật khẩu." : "Mật khẩu đã lưu không còn đúng, nhập lại."); return; }
+  setPw(PW);
+  D = obj.paper; V = obj.live;
+  $("lock").hidden = true; $("modeNav").hidden = false; $("forget").hidden = false;
+  $("upd").textContent = "Cập nhật " + ago((V && V.updated) || D.meta.updated);
+  showMode();
 }
 
 async function tick() {
   if (!D || document.hidden) return;
   try {
     const r = await fetch("https://fapi.binance.com/fapi/v1/ticker/price", { cache: "no-store" });
-    const arr = await r.json(), want = new Set(D.meta.symbols);
+    const arr = await r.json(), want = new Set([...D.meta.symbols, ...((V && V.trades) || []).map(t => t.symbol)]);
     for (const x of arr) if (want.has(x.symbol)) live[x.symbol] = +x.price;
     $("liveDot").classList.add("on");
-    renderHero(); if (tab === "open") renderOpen(); if (tab === "radar") renderRadar();
+    if (mode === "real") { if (V) { renderRealHero(); renderRealOpen(); } }
+    else { renderHero(); if (tab === "open") renderOpen(); if (tab === "radar") renderRadar(); }
   } catch (e) { $("liveDot").classList.remove("on"); }
 }
 
-let rz; window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => D && drawChart(), 120); });
+let rz; window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => D && showMode(), 120); });
 load().then(tick);
 setInterval(tick, 5000);
 setInterval(load, 5 * 60 * 1000);

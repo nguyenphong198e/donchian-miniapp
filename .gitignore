@@ -1,3 +1,5 @@
 __pycache__/
 *.pyc
 scripts/update_paper.log
+private/
+docs/data/dashboard.json
