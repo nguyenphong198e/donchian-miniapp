@@ -45,30 +45,54 @@ H4 = pd.Timedelta(hours=4)
 HOSTS = ["https://fapi.binance.com", "https://fapi1.binance.com", "https://fapi2.binance.com", "https://fapi3.binance.com"]
 
 
-def _get(path: str, params: dict):
+SPOT_HOST = "https://data-api.binance.vision"  # Binance's official public market-data endpoint (spot)
+VISION = "https://data.binance.vision/data/futures/um/monthly/fundingRate"
+SOURCE = {"klines": "futures", "funding": "futures"}
+_FAPI_OK = os.getenv("FORCE_SPOT", "0") != "1"
+
+
+def _get(path: str, params: dict, hosts=None):
     last = None
-    for attempt in range(3):
-        for host in HOSTS:
+    for attempt in range(2):
+        for host in hosts or HOSTS:
             try:
                 r = requests.get(host + path, params=params, timeout=15)
-                if r.status_code == 200:
+                if r.status_code == 200 and r.text.strip():
                     return r.json()
                 last = f"{host} HTTP {r.status_code}"
-            except requests.RequestException as exc:
+            except (requests.RequestException, ValueError) as exc:
                 last = f"{host} {exc}"
         time.sleep(1 + attempt)
     raise RuntimeError(f"Binance request failed: {path} {last}")
 
 
+def _fapi(path: str, params: dict):
+    """Futures API, or None when it is not reachable from here (e.g. GitHub's US runners get HTTP 202/451)."""
+    global _FAPI_OK
+    if not _FAPI_OK:
+        return None
+    try:
+        return _get(path, params)
+    except RuntimeError as exc:
+        print(f"[WARN] futures API unreachable, switching to public spot data: {exc}", flush=True)
+        _FAPI_OK = False
+        return None
+
+
 def klines(sym: str, interval: str, start_ms: int) -> pd.DataFrame:
     rows, cur, now_ms = [], start_ms, int(time.time() * 1000)
     while cur < now_ms:
-        batch = _get("/fapi/v1/klines", {"symbol": sym, "interval": interval, "startTime": cur, "limit": 1500})
+        batch = _fapi("/fapi/v1/klines", {"symbol": sym, "interval": interval, "startTime": cur, "limit": 1500})
+        lim = 1500
+        if batch is None:
+            SOURCE["klines"] = "spot"
+            lim = 1000
+            batch = _get("/api/v3/klines", {"symbol": sym, "interval": interval, "startTime": cur, "limit": lim}, [SPOT_HOST])
         if not batch:
             break
         rows += batch
         cur = batch[-1][0] + 1
-        if len(batch) < 1500:
+        if len(batch) < lim:
             break
     df = pd.DataFrame(rows, columns=list("tohlcv") + ["ct", "q", "n", "tb", "tq", "x"]).drop_duplicates("t")
     df = df[df["ct"] < now_ms]  # closed candles only
@@ -77,10 +101,37 @@ def klines(sym: str, interval: str, start_ms: int) -> pd.DataFrame:
     return out
 
 
+def _funding_monthly(sym: str, start: pd.Timestamp) -> pd.Series:
+    """Monthly funding files from data.binance.vision; the months not published yet repeat the last month's average."""
+    import io
+    import zipfile
+    parts, months = [], pd.period_range(start.tz_localize(None), pd.Timestamp.now(), freq="M")
+    for m in months:
+        try:
+            r = requests.get(f"{VISION}/{sym}/{sym}-fundingRate-{m}.zip", timeout=20)
+            if r.status_code != 200:
+                continue
+            with zipfile.ZipFile(io.BytesIO(r.content)) as z:
+                df = pd.read_csv(z.open(z.namelist()[0]))
+            parts.append(pd.Series(df.iloc[:, 2].astype(float).values, index=pd.to_datetime(df.iloc[:, 0].astype("int64"), unit="ms", utc=True)))
+        except (requests.RequestException, zipfile.BadZipFile, ValueError, IndexError):
+            continue
+    s = pd.concat(parts).sort_index() if parts else pd.Series(dtype=float)
+    last = s.index[-1] if len(s) else start
+    if len(s):
+        recent = s[s.index > last - pd.Timedelta(days=30)].mean()
+        fill = pd.date_range(last + pd.Timedelta(hours=8), pd.Timestamp.now(tz="UTC"), freq="8h")
+        s = pd.concat([s, pd.Series(recent, index=fill)])
+    return s[~s.index.duplicated()]
+
+
 def funding(sym: str, start_ms: int) -> pd.Series:
     rows, cur, now_ms = [], start_ms, int(time.time() * 1000)
     while cur < now_ms:
-        batch = _get("/fapi/v1/fundingRate", {"symbol": sym, "startTime": cur, "limit": 1000})
+        batch = _fapi("/fapi/v1/fundingRate", {"symbol": sym, "startTime": cur, "limit": 1000})
+        if batch is None:
+            SOURCE["funding"] = "monthly files"
+            return _funding_monthly(sym, pd.Timestamp(start_ms, unit="ms", tz="UTC"))
         if not batch:
             break
         rows += batch
@@ -283,7 +334,7 @@ def main() -> int:
     out = {
         "meta": {"updated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M"), "deployed_at": deployed,
                  "paper_start": PAPER_START.strftime("%Y-%m-%d"), "equity0": EQUITY0, "risk_pct": RISK_PCT,
-                 "lookback": LOOKBACK, "trail_atr": K_ATR, "cap": CAP, "fee_pct": round(FEE * 100, 4), "symbols": SYMBOLS},
+                 "lookback": LOOKBACK, "trail_atr": K_ATR, "cap": CAP, "fee_pct": round(FEE * 100, 4), "symbols": SYMBOLS, "source": dict(SOURCE)},
         "stats": {"equity": round(final, 2), "ret_pct": round((final / EQUITY0 - 1) * 100, 2),
                   "cagr_pct": round(((final / EQUITY0) ** (1 / yrs) - 1) * 100, 2) if yrs >= 0.5 else None,
                   "max_dd_pct": round(float(dd.min()), 2), "cur_dd_pct": round(float(dd[-1]), 2),
