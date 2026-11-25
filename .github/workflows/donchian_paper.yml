@@ -1,8 +1,7 @@
 name: Donchian H4 Paper
 
 on:
-  schedule:
-    - cron: '3 * * * *'   # every hour, 3 minutes after the H1/H4 close
+  # Hourly updates now run from the bot machine (scripts/update_paper.bat): GitHub's hourly cron never fired reliably.
   workflow_dispatch:
 
 permissions:
