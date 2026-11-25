@@ -12,7 +12,7 @@ Bảng theo dõi cho chiến lược Donchian của bot máy 1, chạy miễn ph
 2. **Settings → Pages**: Source `Deploy from a branch`, branch `main`, folder `/docs`. Link sẽ có dạng `https://<user>.github.io/donchian-miniapp/`.
 3. **Settings → Secrets and variables → Actions**:
    - Secrets (không bắt buộc, chỉ cần nếu muốn nhận tin báo lệnh paper): `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`. Nên dùng một bot riêng cho paper, đừng dùng chung bot đang trade tiền thật.
-   - Variables: `WEBAPP_URL` = link Pages ở bước 2. Có thể thêm `RISK_PCT` (mặc định `2`) và `PAPER_START` (mặc định `2026-01-01`).
+   - Variables: `WEBAPP_URL` = link Pages ở bước 2. Có thể thêm `RISK_PCT` (mặc định `2`) `PAPER_START` (mặc định `2026-01-01`) và `VOL_MULT` (lọc volume nến phá đỉnh, mặc định `1.5`, `0` = tắt; áp dụng từ 2026-11-25).
 4. **Actions → Donchian H4 Paper → Run workflow** để chạy lần đầu.
 5. Gắn vào Telegram: chat với `@BotFather` → `/mybots` → chọn bot → **Bot Settings → Menu Button** → dán link Pages. Từ đó mở bot là có nút mở bảng.
 

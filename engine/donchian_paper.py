@@ -3,6 +3,9 @@
 Same rule as bot/trendmode.py of the live bot:
   entry   closed H4 candle closes above the highest high of the previous 100 H4 candles, first candle to do so
           (a flip). No new entry while that coin has an open position.
+          volume filter (VOL_MULT, default 1.5, 0 = off): the breakout candle's volume must exceed VOL_MULT x the mean
+          volume of the 20 H4 candles before it. Applied to breakouts closing on/after VOL_FROM (2026-11-25, the day the
+          live bot got it), so the earlier paper history stays what the bot actually did.
   stop    initial = entry - 6 x ATR14(H4); afterwards highest price since entry - 6 x ATR, only ever raised.
   exit    stop touched (fill at the stop, or at the open on a gap), or 30 days (180 H4 candles).
   sizing  RISK_PCT of equity per trade, compounding; skipped when open notional would exceed CAP x equity.
@@ -38,6 +41,9 @@ RISK_PCT = float(os.getenv("RISK_PCT", "2"))
 LOOKBACK = int(os.getenv("LOOKBACK", "100"))
 K_ATR = float(os.getenv("TRAIL_ATR", "6"))
 CAP = float(os.getenv("CAP", "3"))
+VOL_MULT = float(os.getenv("VOL_MULT", "1.5"))
+VOL_FROM = pd.Timestamp(os.getenv("VOL_FROM", "2026-11-25"), tz="UTC")
+VOL_WINDOW = 20
 FEE = 0.0007
 MAX_BARS = 180
 MIN_HISTORY = 360
@@ -96,7 +102,8 @@ def klines(sym: str, interval: str, start_ms: int) -> pd.DataFrame:
             break
     df = pd.DataFrame(rows, columns=list("tohlcv") + ["ct", "q", "n", "tb", "tq", "x"]).drop_duplicates("t")
     df = df[df["ct"] < now_ms]  # closed candles only
-    out = pd.DataFrame({k: df[c].astype(float).values for k, c in (("open", "o"), ("high", "h"), ("low", "l"), ("close", "c"))},
+    out = pd.DataFrame({k: df[c].astype(float).values for k, c in (("open", "o"), ("high", "h"), ("low", "l"), ("close", "c"),
+                                                                   ("volume", "v"))},
                        index=pd.to_datetime(df["t"].astype("int64").values, unit="ms", utc=True))
     return out
 
@@ -154,7 +161,11 @@ def atr14(h4: pd.DataFrame) -> np.ndarray:
 def flips(h4: pd.DataFrame) -> np.ndarray:
     ceiling = h4["high"].rolling(LOOKBACK).max().shift(1)
     above = h4["close"] > ceiling
-    f = (above & ~above.shift(1, fill_value=False)).to_numpy().copy()
+    f = above & ~above.shift(1, fill_value=False)
+    if VOL_MULT:
+        loud = h4["volume"] > VOL_MULT * h4["volume"].rolling(VOL_WINDOW).mean().shift(1)
+        f &= loud | (h4.index + H4 < VOL_FROM)
+    f = f.to_numpy().copy()
     f[:max(LOOKBACK + 1, MIN_HISTORY - 1)] = False
     return f
 
@@ -334,7 +345,7 @@ def main() -> int:
     out = {
         "meta": {"updated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M"), "deployed_at": deployed,
                  "paper_start": PAPER_START.strftime("%Y-%m-%d"), "equity0": EQUITY0, "risk_pct": RISK_PCT,
-                 "lookback": LOOKBACK, "trail_atr": K_ATR, "cap": CAP, "fee_pct": round(FEE * 100, 4), "symbols": SYMBOLS, "source": dict(SOURCE)},
+                 "lookback": LOOKBACK, "trail_atr": K_ATR, "cap": CAP, "vol_mult": VOL_MULT, "vol_from": f"{VOL_FROM:%Y-%m-%d}", "fee_pct": round(FEE * 100, 4), "symbols": SYMBOLS, "source": dict(SOURCE)},
         "stats": {"equity": round(final, 2), "ret_pct": round((final / EQUITY0 - 1) * 100, 2),
                   "cagr_pct": round(((final / EQUITY0) ** (1 / yrs) - 1) * 100, 2) if yrs >= 0.5 else None,
                   "max_dd_pct": round(float(dd.min()), 2), "cur_dd_pct": round(float(dd[-1]), 2),

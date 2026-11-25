@@ -268,7 +268,7 @@ function renderHist() {
 
 function renderRules() {
   const m = D.meta;
-  $("rules").innerHTML = `<b>Luật (giống bot máy 1):</b> chỉ LONG, khung H4, ${m.symbols.length} coin (${m.symbols.map(coin).join(", ")}). Vào khi nến H4 đóng vượt đỉnh ${m.lookback} nến trước.
+  $("rules").innerHTML = `<b>Luật (giống bot máy 1):</b> chỉ LONG, khung H4, ${m.symbols.length} coin (${m.symbols.map(coin).join(", ")}). Vào khi nến H4 đóng vượt đỉnh ${m.lookback} nến trước${m.vol_mult ? `, volume nến đó lớn hơn ${m.vol_mult}× trung bình 20 nến (lọc này áp dụng từ ${m.vol_from}, giống bot)` : ""}.
     SL ${m.trail_atr}×ATR, kéo lên theo đỉnh, giữ tối đa 30 ngày. Rủi ro ${m.risk_pct}% vốn mỗi lệnh, lãi kép, tổng vị thế tối đa ${m.cap}× vốn. Phí ${(+m.fee_pct).toFixed(2)}%/chiều và funding thật.<br><br>
     <b>Đây là mô phỏng, không phải tài khoản thật.</b> Lệnh có nhãn QUÁ KHỨ được tính lại từ dữ liệu trước ngày bật bot (${m.deployed_at.slice(0, 10)}). Giá thoát là mức stop; vào lệnh thật có trượt giá.` +
     (m.source && m.source.klines === "spot" ? `<br><br>Nguồn giá: GitHub bị Binance chặn API futures nên engine dùng nến spot công khai của Binance (chênh với futures thường dưới 0.1%) và funding theo file tháng; tháng chưa có file thì lấy trung bình tháng trước.` : "");
